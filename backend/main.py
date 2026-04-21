@@ -1,11 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.database.db import setup_db
-from app.routes import customers, invoices # 👈 Namma pudhu routes
-from app.routes import customers, products, invoices, quotes, challans
+from app.database.db import engine, Base, setup_db
+from app.routes import customers, products, invoices, quotes, challans, payments
+from app.models import orm # Import models to ensure they are registered
+
 app = FastAPI(title="Enterprise AR Hub API")
 
-# Initial DB Setup
+# Create tables if they don't exist
+Base.metadata.create_all(bind=engine)
 setup_db()
 
 app.add_middleware(
@@ -21,11 +23,13 @@ app.include_router(products.router)
 app.include_router(invoices.router)
 app.include_router(quotes.router)
 app.include_router(challans.router)
+app.include_router(payments.router)
 
 @app.get("/")
 def root():
-    return {"message": "API is online and modularized! 🚀"}
+    return {"message": "API is online with SQLAlchemy ORM! --- Rocket"}
 
-@app.get("/")
+@app.get("/health")
 def health():
-    return {"status": "Active", "mode": "Modular"}
+    return {"status": "Active", "mode": "ORM"}
+

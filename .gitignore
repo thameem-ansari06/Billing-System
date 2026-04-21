@@ -1,0 +1,21 @@
+# Python junk
+__pycache__/
+*.pyc
+
+# Sensitive data
+.env
+
+# Local Databases
+*.db
+backend/data/ar_system.db
+
+# Generated PDFs
+backend/data/invoices/
+backend/data/challans/
+
+# Virtual Environment
+.venv/
+node_modules/
+
+# Scratch/Temporary files
+scratch_*.py

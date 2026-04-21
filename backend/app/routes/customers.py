@@ -1,38 +1,49 @@
-from fastapi import APIRouter, HTTPException
-from app.database.db import get_db, get_next_id          # Database connection
-from app.models.schemas import CustomerCreate    # Puthu schema file
-import sqlite3
-import time
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from typing import List
+from app.database.db import get_db, get_next_id
+from app.models.orm import Customer, ContactPerson
+from app.models.schemas import CustomerCreate, CustomerRead
 
-# Router define panrom (prefix kuduthaa aduthu path-la "/api/customers" poda thevaiyillai)
 router = APIRouter(prefix="/api/customers", tags=["Customers"])
 
 @router.get("/")
-def get_all_customers():
-    conn = get_db()
-    customers = conn.execute("SELECT * FROM customers").fetchall()
-    conn.close()
-    return {"customers": [dict(c) for c in customers]}
+def get_all_customers(db: Session = Depends(get_db)):
+    customers = db.query(Customer).all()
+    return {"customers": customers}
 
-@router.post("/")
-def create_customer(cust: CustomerCreate):
-    conn = get_db()
-    c = conn.cursor()
+
+@router.post("/", response_model=CustomerRead)
+def create_customer(customer_data: CustomerCreate, db: Session = Depends(get_db)):
+    # 1. Generate ID
     cust_id = get_next_id("CUST", "customers", "customer_id")
     
     try:
-        c.execute('''INSERT INTO customers VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', 
-                  (cust_id, cust.customer_type, cust.salutation, cust.first_name, cust.last_name,
-                   cust.company_name, cust.display_name, cust.currency, cust.email,
-                   cust.phone_work, cust.phone_mobile, cust.gst_treatment, 
-                   cust.place_of_supply, cust.pan, cust.tax_preference, cust.payment_terms,
-                   cust.billing_attention, cust.billing_country, cust.billing_address_1, cust.billing_address_2,
-                   cust.billing_city, cust.billing_state, cust.billing_pincode, cust.billing_phone, cust.billing_fax,
-                   cust.shipping_attention, cust.shipping_country, cust.shipping_address_1, cust.shipping_address_2,
-                   cust.shipping_city, cust.shipping_state, cust.shipping_pincode, cust.shipping_phone, cust.shipping_fax))
-        conn.commit()
-        return {"message": "Success", "id": cust_id}
+        # 2. Extract contact persons from data
+        contact_persons_data = customer_data.contact_persons
+        
+        # 3. Create Customer object (excluding relationship field initially)
+        db_customer = Customer(
+            customer_id=cust_id,
+            **customer_data.model_dump(exclude={"contact_persons"})
+        )
+        
+        db.add(db_customer)
+        db.flush() # Flush to get db_customer.id
+        
+        # 4. Create ContactPerson objects
+        for cp_data in contact_persons_data:
+            db_contact = ContactPerson(
+                customer_id=db_customer.id,
+                **cp_data.model_dump()
+            )
+            db.add(db_contact)
+        
+        db.commit()
+        db.refresh(db_customer)
+        return db_customer
+        
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        conn.close()
+        db.rollback()
+        print(f"❌ PostgreSQL Insert Error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))

@@ -27,10 +27,7 @@ export default function InventoryTab() {
   return (
     <div className="animate-in fade-in duration-500 space-y-6">
       {/* Header */}
-      <Button onClick={() => navigate('/inventory/new')} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
-  <Plus size={18} className="mr-2" /> Add Item
-</Button>
-      <div className="flex justify-between items-center bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
             <Package size={28} />
@@ -38,17 +35,21 @@ export default function InventoryTab() {
           <div>
             <h1 className="text-2xl font-bold text-slate-800">Inventory Management</h1>
             <p className="text-sm text-slate-500">Track and manage your product stock</p>
-            
           </div>
         </div>
-        <Button onClick={fetchProducts} variant="outline" className="gap-2">
-          <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} /> Refresh
-        </Button>
+        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+          <Button onClick={() => navigate('/inventory/new')} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold w-full md:w-auto h-11">
+            <Plus size={18} className="mr-2" /> Add Item
+          </Button>
+          <Button onClick={fetchProducts} variant="outline" className="gap-2 w-full md:w-auto h-11">
+            <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} /> Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Product List Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <table className="w-full text-left">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto w-full">
+        <table className="w-full text-left whitespace-nowrap">
           <thead className="bg-slate-50 border-b">
             <tr className="text-slate-500 text-sm">
               <th className="p-4 font-semibold">Product ID</th>

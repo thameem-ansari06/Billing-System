@@ -5,106 +5,143 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+from reportlab.lib.units import inch
 
-def generate_pdf_invoice(invoice_id, customer_email, items_list):
+def generate_pdf_invoice(invoice_id, customer_email, items_list, tax_data=None, terms=None, logo_path=None, logistics_data=None):
     """
-    items_list format expect panrathu: 
-    [{'Item Name': 'FastAPI Setup', 'Price': 10000}, ...]
+    Professional PDF Generator for Antigravity Billing.
+    Supports Tax Breakdown, Signatory, Terms, and Logistics.
     """
-    print(f"\n⚙️ [Generator Engine] Building Invoice {invoice_id}...")
+    print(f"\n⚙️ [Generator Engine] Building Professional Document {invoice_id}...")
     
-    # ==========================================
-    # 1. THE MATH ENGINE (Pandas)
-    # ==========================================
+    # Math Engine
     df = pd.DataFrame(items_list)
     df['Price'] = df['Price'].astype(float)
     
-    # 18% GST Calculation
-    df['GST (18%)'] = df['Price'] * 0.18
-    df['Total'] = df['Price'] + df['GST (18%)']
-    
+    # Use provided tax_data if available, else fallback to 18%
     subtotal = df['Price'].sum()
-    total_gst = df['GST (18%)'].sum()
-    grand_total = df['Total'].sum()
+    if tax_data:
+        cgst = tax_data.get('cgst', 0)
+        sgst = tax_data.get('sgst', 0)
+        igst = tax_data.get('igst', 0)
+        grand_total = tax_data.get('grand_total', subtotal)
+    else:
+        total_gst = subtotal * 0.18
+        cgst = total_gst / 2
+        sgst = total_gst / 2
+        igst = 0
+        grand_total = subtotal + total_gst
+
+    # PDF Setup
+    save_folder = os.path.join("data", "invoices")
+    # Sanitize invoice_id for filename (replace slashes with dashes to avoid directory issues)
+    safe_invoice_id = invoice_id.replace("/", "-").replace("\\", "-")
+    pdf_path = os.path.join(save_folder, f"{safe_invoice_id}.pdf")
     
-    # ==========================================
-    # 2. PDF SETUP & DESIGN
-    # ==========================================
-    # Save panra folder check panrom
-    save_folder = "data/invoices"
-    os.makedirs(save_folder, exist_ok=True)
-    pdf_path = f"{save_folder}/{invoice_id}.pdf"
+    os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
     
-    doc = SimpleDocTemplate(pdf_path, pagesize=A4)
+    doc = SimpleDocTemplate(pdf_path, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
     elements = []
     styles = getSampleStyleSheet()
     
-    # Header Design
-    header_style = ParagraphStyle(name='Header', parent=styles['Heading1'], alignment=1, fontSize=20, spaceAfter=10)
-    elements.append(Paragraph("<b>THAMEEM TECH & IT SOLUTIONS</b>", header_style))
-    elements.append(Paragraph("<para align=center>Automated Billing System | info@thameem.tech</para>", styles['Normal']))
-    elements.append(Spacer(1, 30))
-    
-    # Invoice Details Section
-    info_text = f"<b>Invoice Number:</b> {invoice_id}<br/>" \
-                f"<b>Billed To:</b> {customer_email}<br/>" \
-                f"<b>Date:</b> {date.today().strftime('%d-%b-%Y')}"
-    elements.append(Paragraph(info_text, styles['Normal']))
+    # 1. Header with Logo Table
+    header_data = [[
+        Paragraph("<b>SR.Thameem BILLING</b><br/><font size=9>Your Professional Automation Partner</font>", styles['Normal']),
+        Paragraph(f"<para align=right><b>DOCUMENT</b><br/><font size=12>#{invoice_id}</font></para>", styles['Normal'])
+    ]]
+    head_table = Table(header_data, colWidths=[3.5*inch, 3.5*inch])
+    elements.append(head_table)
     elements.append(Spacer(1, 20))
     
-    # ==========================================
-    # 3. DRAWING THE TABLE
-    # ==========================================
-    # Table Header
-    table_data = [['Description', 'Unit Price (₹)', 'GST 18% (₹)', 'Net Total (₹)']]
+    # 2. Bill To & Date
+    info_data = [[
+        Paragraph(f"<b>BILL TO:</b><br/>{customer_email}", styles['Normal']),
+        Paragraph(f"<b>DATE:</b> {date.today().strftime('%d %b %Y')}", styles['Normal'])
+    ]]
+    info_table = Table(info_data, colWidths=[3.5*inch, 3.5*inch])
+    elements.append(info_table)
+    elements.append(Spacer(1, 25))
+
+    # 3. Logistics Section (New)
+    if logistics_data:
+        logistics_title = Paragraph("<b>SHIPPING & LOGISTICS DETAILS</b>", styles['Normal'])
+        elements.append(logistics_title)
+        elements.append(Spacer(1, 5))
+        
+        l_data = [[
+            Paragraph(f"<b>Vehicle#:</b> {logistics_data.get('vehicle_number', 'N/A')}", styles['Normal']),
+            Paragraph(f"<b>Transporter:</b> {logistics_data.get('transporter_name', 'N/A')}", styles['Normal'])
+        ], [
+            Paragraph(f"<b>Driver:</b> {logistics_data.get('driver_name', 'N/A')} ({logistics_data.get('driver_mobile', '-')})", styles['Normal']),
+            Paragraph(f"<b>Waybill/LR:</b> {logistics_data.get('waybill_number', 'N/A')}", styles['Normal'])
+        ]]
+        l_table = Table(l_data, colWidths=[3.5*inch, 3.5*inch])
+        l_table.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 0.1, colors.lightgrey),
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#f8fafc")),
+            ('PADDING', (0, 0), (-1, -1), 8),
+        ]))
+        elements.append(l_table)
+        elements.append(Spacer(1, 20))
     
-    # Adding items dynamically from Pandas DataFrame
-    for index, row in df.iterrows():
+    # 4. Items Table
+    table_data = [['DESCRIPTION', 'QTY', 'RATE (₹)', 'AMOUNT (₹)']]
+    for item in items_list:
         table_data.append([
-            row['Item Name'],
-            f"{row['Price']:.2f}",
-            f"{row['GST (18%)']:.2f}",
-            f"{row['Total']:.2f}"
+            item.get('Item Name', 'Service'),
+            str(item.get('Quantity', 1)),
+            f"{float(item.get('Price', 0)):.2f}",
+            f"{float(item.get('Amount', item.get('Price', 0))):.2f}"
         ])
         
-    # Adding Summary Rows at the bottom
-    table_data.append(['', '', 'Subtotal:', f"{subtotal:.2f}"])
-    table_data.append(['', '', 'Total GST:', f"{total_gst:.2f}"])
-    table_data.append(['', '', 'GRAND TOTAL:', f"₹ {grand_total:.2f}"])
-    
-    # Table Styling (Corporate Look)
-    t = Table(table_data, colWidths=[220, 100, 90, 100])
+    t = Table(table_data, colWidths=[3.5*inch, 0.8*inch, 1.2*inch, 1.5*inch])
     t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#1A2B4C")), # Dark Blue Header
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#2563eb")), # Blue Header
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (1, 0), (-1, -1), 'RIGHT'), # Align numbers to right
+        ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
-        ('BACKGROUND', (0, 1), (-1, -4), colors.HexColor("#F5F5F5")), # Light Grey items
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-        ('FONTNAME', (2, -3), (2, -1), 'Helvetica-Bold'), # Bold for summary labels
-        ('FONTNAME', (3, -1), (3, -1), 'Helvetica-Bold'), # Bold for Grand Total value
-        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor("#E0E0E0")), # Grand total row highlight
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('GRID', (0, 0), (-1, -1), 0.1, colors.grey),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
-    
     elements.append(t)
+    elements.append(Spacer(1, 15))
+    
+    # 5. Tax Breakdown & Totals
+    summary_data = [
+        ['', 'Sub Total:', f"₹ {subtotal:.2f}"],
+    ]
+    if igst > 0:
+        summary_data.append(['', 'IGST:', f"₹ {igst:.2f}"])
+    else:
+        summary_data.append(['', 'CGST:', f"₹ {cgst:.2f}"])
+        summary_data.append(['', 'SGST:', f"₹ {sgst:.2f}"])
+    
+    summary_data.append(['', 'GRAND TOTAL:', f"₹ {grand_total:.2f}"])
+    
+    summary_table = Table(summary_data, colWidths=[4*inch, 1.5*inch, 1.5*inch])
+    summary_table.setStyle(TableStyle([
+        ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
+        ('FONTNAME', (-2, -1), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (-2, -1), (-1, -1), 12),
+        ('TOPPADDING', (0, -1), (-1, -1), 5),
+    ]))
+    elements.append(summary_table)
+    elements.append(Spacer(1, 40))
+    
+    # 6. Terms and Conditions & Signatory
+    footer_data = [[
+        Paragraph(f"<b>Terms & Conditions:</b><br/><font size=8>{terms or '1. Goods once sold will not be taken back.<br/>2. Pay within due date to avoid interest.'}</font>", styles['Normal']),
+        Paragraph("<para align=right><b>Authorized Signatory</b><br/><br/><br/>________________________</para>", styles['Normal'])
+    ]]
+    footer_table = Table(footer_data, colWidths=[4*inch, 3*inch])
+    elements.append(footer_table)
     
     # Final Build
     doc.build(elements)
-    print(f"✅ Success! PDF Generated: {pdf_path}")
-    print(f"💰 Extracted Grand Total for DB: ₹{grand_total}")
-    
-    # Rendu output return panrom: PDF path (mail-kku), Grand Total (DB-kku)
     return pdf_path, grand_total
 
-# ==========================================
-# TEST RUN BLOCK (Itha direct-a run panni paarkalam)
-# ==========================================
 if __name__ == "__main__":
-    test_items = [
-        {"Item Name": "FastAPI Backend Setup", "Price": 12000},
-        {"Item Name": "LangGraph AI Agent", "Price": 18000},
-        {"Item Name": "Heavy Duty Steel Hammer", "Price": 850}
-    ]
-    
-    pdf_file, final_amount = generate_pdf_invoice("INV-2001", "manager@company.com", test_items)
+    test_items = [{"Item Name": "Test Product", "Quantity": 2, "Price": 500, "Amount": 1000}]
+    generate_pdf_invoice("INV-TEST", "test@example.com", test_items)

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-export default function CreateQuote() {
+export default function CreateInvoice() {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
@@ -15,10 +15,11 @@ export default function CreateQuote() {
   const [formData, setFormData] = useState({
     customer_name: '',
     place_of_supply: 'Tamil Nadu',
-    quote_number: 'EST-', 
+    invoice_number: 'INV-', 
     reference_number: '',
-    quote_date: new Date().toISOString().split('T')[0],
-    expiry_date: '',
+    invoice_date: new Date().toISOString().split('T')[0],
+    due_date: new Date().toISOString().split('T')[0],
+    email: '',
   });
 
   // Items table state
@@ -36,7 +37,27 @@ export default function CreateQuote() {
     fetch('http://localhost:8000/api/products')
       .then(res => res.json())
       .then(data => setProducts(data.products || []));
+
+    // Fetch Next Invoice Number
+    fetch('http://localhost:8000/api/invoices/next-number')
+      .then(res => res.json())
+      .then(data => {
+         if (data.next_number) handleBaseChange('invoice_number', data.next_number);
+      });
   }, []);
+
+  const formatAddress = (c) => {
+    return [
+      c.shipping_attention,
+      c.shipping_address_1,
+      c.shipping_address_2,
+      c.shipping_city,
+      c.shipping_state,
+      c.shipping_pincode,
+      c.shipping_country
+    ].filter(Boolean).join(', ');
+  };
+
 
   const handleBaseChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
@@ -120,40 +141,40 @@ export default function CreateQuote() {
         items: items
       };
 
-      const response = await fetch('http://localhost:8000/api/quotes/', {
+      const response = await fetch('http://localhost:8000/api/invoices/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       if (response.ok) {
-        navigate('/quotes');
+        navigate('/invoices');
       } else {
         const err = await response.json();
-        alert('Failed to save quote: ' + JSON.stringify(err));
+        alert('Failed to save invoice: ' + JSON.stringify(err));
       }
     } catch (error) {
       console.error(error);
-      alert('Error saving quote');
+      alert('Error saving invoice');
     }
   };
 
   return (
-    <div className="bg-white text-slate-900 rounded-xl shadow-sm border border-slate-200">
+    <div className="bg-white text-slate-900 rounded-xl shadow-sm border border-slate-200 w-full max-w-7xl mx-auto my-6">
       
-      {/* 1. HEADER */}
+      {/* HEADER */}
       <header className="bg-slate-50/50 border-b border-slate-200 px-6 lg:px-10 py-5 flex items-center justify-between rounded-t-xl">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/quotes')} className="p-2 hover:bg-slate-100 rounded-full transition-all">
-            <ChevronLeft size={24} className="text-slate-600" />
+          <button onClick={() => navigate('/invoices')} className="p-2 hover:bg-slate-100 rounded-full transition-all text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <ChevronLeft size={24} />
           </button>
-          <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-slate-800">New Quote</h1>
+          <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-slate-800">New Invoice</h1>
           <button className="text-blue-600 text-sm font-semibold ml-4 hover:underline flex items-center gap-2">
             Fetch Details From GSTN <ExternalLink size={16} />
           </button>
         </div>
       </header>
 
-      {/* 2. FORM CONTENT */}
+      {/* FORM CONTENT */}
       <div className="p-6 lg:p-10 space-y-10">
         
         {/* Base Info */}
@@ -163,8 +184,11 @@ export default function CreateQuote() {
             <div className="col-span-12 md:col-span-6">
               <Select onValueChange={(v) => {
                 handleBaseChange('customer_name', v);
-                const selectedCust = customers.find(c => c.customer_id === v || c.display_name === v);
-                if (selectedCust) handleBaseChange('place_of_supply', selectedCust.place_of_supply || 'Tamil Nadu');
+                const selectedCust = customers.find(c => (c.display_name || c.first_name) === v);
+                if (selectedCust) {
+                    handleBaseChange('place_of_supply', selectedCust.place_of_supply || 'Tamil Nadu');
+                    handleBaseChange('email', selectedCust.email || '');
+                }
               }}>
                 <SelectTrigger className="h-11 border-slate-200 focus:ring-1 focus:ring-blue-400">
                   <SelectValue placeholder="Select a Customer" />
@@ -179,8 +203,8 @@ export default function CreateQuote() {
           </div>
 
           <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-700">Quote#</Label>
-            <Input className="col-span-12 md:col-span-6 h-11 border-slate-200" value={formData.quote_number} onChange={e => handleBaseChange('quote_number', e.target.value)} />
+            <Label className="col-span-12 md:col-span-3 text-sm font-bold text-[#ef4444]">Invoice# *</Label>
+            <Input className="col-span-12 md:col-span-6 h-11 border-slate-200" value={formData.invoice_number} onChange={e => handleBaseChange('invoice_number', e.target.value)} />
           </div>
 
           <div className="grid grid-cols-12 gap-6 items-center">
@@ -189,13 +213,13 @@ export default function CreateQuote() {
           </div>
 
           <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-12 md:col-span-3 text-sm font-bold text-[#ef4444]">Quote Date *</Label>
-            <Input type="date" className="col-span-12 md:col-span-3 h-11 border-slate-200" value={formData.quote_date} onChange={e => handleBaseChange('quote_date', e.target.value)} />
+            <Label className="col-span-12 md:col-span-3 text-sm font-bold text-[#ef4444]">Invoice Date *</Label>
+            <Input type="date" className="col-span-12 md:col-span-3 h-11 border-slate-200" value={formData.invoice_date} onChange={e => handleBaseChange('invoice_date', e.target.value)} />
           </div>
 
           <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-700">Expiry Date</Label>
-            <Input type="date" className="col-span-12 md:col-span-3 h-11 border-slate-200" value={formData.expiry_date} onChange={e => handleBaseChange('expiry_date', e.target.value)} />
+            <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-700">Due Date</Label>
+            <Input type="date" className="col-span-12 md:col-span-3 h-11 border-slate-200" value={formData.due_date} onChange={e => handleBaseChange('due_date', e.target.value)} />
           </div>
 
           <div className="grid grid-cols-12 gap-6 items-center">
@@ -219,23 +243,23 @@ export default function CreateQuote() {
 
         {/* Items Table */}
         <section className="pt-4 border-t border-slate-200">
-          <div className="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
-            <table className="w-full text-left">
+          <div className="bg-slate-50 border border-slate-200 rounded-lg overflow-x-auto overflow-y-visible">
+            <table className="w-full text-left whitespace-nowrap">
               <thead className="border-b border-slate-200">
                 <tr className="text-xs uppercase text-slate-500 font-bold bg-white">
-                  <th className="p-3 w-4/12 text-[#ef4444]">Item Details *</th>
-                  <th className="p-3 w-1/12 text-right">Quantity</th>
-                  <th className="p-3 w-2/12 text-right">Rate</th>
-                  <th className="p-3 w-2/12 text-right">Discount</th>
-                  <th className="p-3 w-1/12">Tax</th>
-                  <th className="p-3 w-2/12 text-right">Amount</th>
-                  <th className="p-3 w-12"></th>
+                  <th className="p-3 w-4/12 min-w-[200px] text-[#ef4444]">Item Details *</th>
+                  <th className="p-3 w-1/12 min-w-[100px] text-right">Quantity</th>
+                  <th className="p-3 w-2/12 min-w-[120px] text-right">Rate</th>
+                  <th className="p-3 w-2/12 min-w-[160px] text-right">Discount</th>
+                  <th className="p-3 w-1/12 min-w-[100px]">Tax</th>
+                  <th className="p-3 w-2/12 min-w-[120px] text-right">Amount</th>
+                  <th className="p-3 w-12 min-w-[50px]"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
                 {items.map((item, index) => (
                   <tr key={item.id} className="hover:bg-slate-50/50">
-                    <td className="p-2">
+                    <td className="p-2 align-top">
                        <Select value={item.item_details} onValueChange={(v) => handleItemChange(index, 'item_details', v)}>
                          <SelectTrigger className="h-10 border-slate-200 shadow-none"><SelectValue placeholder="Select an Item..." /></SelectTrigger>
                          <SelectContent>
@@ -245,20 +269,22 @@ export default function CreateQuote() {
                          </SelectContent>
                        </Select>
                     </td>
-                    <td className="p-2">
+                    <td className="p-2 align-top">
                       <Input type="number" min="1" className="h-10 text-right shadow-none" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} />
                     </td>
-                    <td className="p-2">
+                    <td className="p-2 align-top">
                       <Input type="number" className="h-10 text-right shadow-none" value={item.rate} onChange={(e) => handleItemChange(index, 'rate', e.target.value)} />
                     </td>
-                    <td className="p-2 flex items-center gap-1">
-                      <Input type="number" className="h-10 w-2/3 text-right shadow-none" value={item.discount_amount} onChange={(e) => handleItemChange(index, 'discount_amount', e.target.value)} />
-                      <Select value={item.discount_type} onValueChange={(v) => handleItemChange(index, 'discount_type', v)}>
-                        <SelectTrigger className="h-10 w-1/3 px-2 shadow-none font-medium"><SelectValue /></SelectTrigger>
-                        <SelectContent><SelectItem value="percentage">%</SelectItem><SelectItem value="amount">₹</SelectItem></SelectContent>
-                      </Select>
+                    <td className="p-2 align-top">
+                      <div className="flex items-center gap-1">
+                        <Input type="number" className="h-10 w-2/3 text-right shadow-none" value={item.discount_amount} onChange={(e) => handleItemChange(index, 'discount_amount', e.target.value)} />
+                        <Select value={item.discount_type} onValueChange={(v) => handleItemChange(index, 'discount_type', v)}>
+                          <SelectTrigger className="h-10 w-1/3 px-2 shadow-none font-medium"><SelectValue /></SelectTrigger>
+                          <SelectContent><SelectItem value="percentage">%</SelectItem><SelectItem value="amount">₹</SelectItem></SelectContent>
+                        </Select>
+                      </div>
                     </td>
-                    <td className="p-2">
+                    <td className="p-2 align-top">
                       <Select value={item.tax_type} onValueChange={(v) => handleItemChange(index, 'tax_type', v)}>
                         <SelectTrigger className="h-10 shadow-none"><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -267,10 +293,10 @@ export default function CreateQuote() {
                         </SelectContent>
                       </Select>
                     </td>
-                    <td className="p-2 text-right font-medium text-slate-700">
+                    <td className="p-2 text-right font-medium text-slate-700 align-top pt-4">
                       ₹{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}
                     </td>
-                    <td className="p-2 text-center">
+                    <td className="p-2 text-center align-top pt-4">
                       <button onClick={() => removeItemRow(index)} className="text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-md focus:outline-none transition-colors h-11 w-11 flex items-center justify-center min-h-[44px] min-w-[44px]"><Trash2 size={16} /></button>
                     </td>
                   </tr>
@@ -279,7 +305,7 @@ export default function CreateQuote() {
             </table>
           </div>
           <div className="mt-4">
-            <Button variant="ghost" onClick={addItemRow} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+            <Button variant="ghost" onClick={addItemRow} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 focus:ring-2 focus:ring-blue-200">
               <PlusCircle size={16} className="mr-2" /> Add Another Line
             </Button>
           </div>
@@ -287,7 +313,7 @@ export default function CreateQuote() {
 
         {/* Totals Calculation */}
         <section className="flex justify-end pt-8">
-          <div className="w-1/3 bg-slate-50/50 p-6 rounded-lg border border-slate-100 space-y-4">
+          <div className="w-full max-w-sm bg-slate-50/50 p-6 rounded-xl border border-slate-100 shadow-sm space-y-4">
             <div className="flex justify-between text-sm font-medium text-slate-600">
               <span>Sub Total</span>
               <span>₹{totals.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}</span>
@@ -311,23 +337,23 @@ export default function CreateQuote() {
                 </div>
             )}
             
-            <div className="pt-4 border-t border-slate-200 flex justify-between font-black text-xl text-slate-800">
-              <span>Total ( ₹ )</span>
-              <span>₹{totals.grand_total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}</span>
+            <div className="pt-4 border-t border-slate-200 flex justify-between font-black text-xl text-slate-800 items-baseline">
+              <span>Total</span>
+              <span className="text-2xl">₹{totals.grand_total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}</span>
             </div>
           </div>
         </section>
       </div>
 
-      {/* 3. FOOTER */}
+      {/* FOOTER */}
       <footer className="bg-slate-50 border-t border-slate-200 p-6 rounded-b-xl flex justify-end gap-4 shadow-sm">
-        <Button variant="outline" className="px-6 h-11 border-slate-300 font-semibold text-slate-600 bg-white" onClick={() => handleSave("Draft")}>
+        <Button variant="outline" className="px-6 h-11 border-slate-300 font-semibold text-slate-600 bg-white hover:bg-slate-50" onClick={() => handleSave("Draft")}>
           Save as Draft
         </Button>
-        <Button className="bg-blue-600 hover:bg-blue-700 px-8 h-11 font-bold text-white" onClick={() => handleSave("Sent")}>
+        <Button className="bg-blue-600 hover:bg-blue-700 px-8 h-11 font-bold text-white shadow-sm transition-colors" onClick={() => handleSave("Sent")}>
           Save and Send
         </Button>
-        <Button variant="ghost" className="px-6 h-11 font-semibold text-slate-500 hover:text-slate-700" onClick={() => navigate('/quotes')}>
+        <Button variant="ghost" className="px-6 h-11 font-semibold text-slate-500 hover:text-slate-700 hover:bg-slate-100" onClick={() => navigate('/invoices')}>
           Cancel
         </Button>
       </footer>

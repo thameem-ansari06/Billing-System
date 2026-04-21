@@ -66,10 +66,10 @@ export default function CreateItem() {
           
           {/* Type Selection */}
           <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-3 text-sm font-medium text-slate-500 flex items-center gap-1">
+            <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-500 flex items-center gap-1">
               Type <HelpCircle size={14} className="opacity-30" />
             </Label>
-            <div className="col-span-9 flex gap-10">
+            <div className="col-span-12 md:col-span-9 flex gap-10">
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input type="radio" checked={formData.type === 'Goods'} onChange={() => updateField('type', 'Goods')} className="w-4 h-4 accent-blue-600" />
                 <span className="text-sm font-medium">Goods</span>
@@ -83,7 +83,7 @@ export default function CreateItem() {
 
           {/* Name */}
           <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-3 text-sm font-bold text-red-600">Name *</Label>
+            <Label className="col-span-12 md:col-span-3 text-sm font-bold text-red-600">Name *</Label>
             <Input 
               className="col-span-7 h-11 border-slate-200 focus-visible:ring-1 focus-visible:ring-blue-400" 
               value={formData.name} 
@@ -93,7 +93,7 @@ export default function CreateItem() {
 
           {/* Unit */}
           <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-3 text-sm font-medium text-slate-500">Unit</Label>
+            <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-500">Unit</Label>
             <div className="col-span-7">
               <Select onValueChange={(v) => updateField('unit', v)}>
                 <SelectTrigger className="h-11 border-slate-200 shadow-none"><SelectValue placeholder="Select or type to add" /></SelectTrigger>
@@ -108,7 +108,7 @@ export default function CreateItem() {
 
           {/* Tax Preference */}
           <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-3 text-sm font-bold text-red-600">Tax Preference *</Label>
+            <Label className="col-span-12 md:col-span-3 text-sm font-bold text-red-600">Tax Preference *</Label>
             <div className="col-span-7">
               <Select value={formData.tax_preference} onValueChange={(v) => updateField('tax_preference', v)}>
                 <SelectTrigger className="h-11 border-slate-200 shadow-none"><SelectValue /></SelectTrigger>
@@ -124,8 +124,8 @@ export default function CreateItem() {
 
           {/* Selling Price */}
           <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-3 text-sm font-bold text-red-600 underline decoration-dotted">Selling Price *</Label>
-            <div className="col-span-4 flex">
+            <Label className="col-span-12 md:col-span-3 text-sm font-bold text-red-600 underline decoration-dotted">Selling Price *</Label>
+            <div className="col-span-12 md:col-span-4 flex">
               <div className="h-11 px-4 flex items-center bg-slate-50 border border-r-0 border-slate-200 text-xs font-bold text-slate-400 rounded-l-md">INR</div>
               <Input 
                 className="h-11 border-slate-200 rounded-l-none focus-visible:ring-0" 
@@ -144,13 +144,13 @@ export default function CreateItem() {
             </div>
             
             <div className="grid grid-cols-12 gap-6 items-center">
-              <Label className="col-span-3 text-[13px] text-slate-400 underline decoration-dotted">Intra State Tax Rate</Label>
-              <div className="col-span-9 text-sm font-medium text-slate-600">{formData.intra_state_tax}</div>
+              <Label className="col-span-12 md:col-span-3 text-[13px] text-slate-400 underline decoration-dotted">Intra State Tax Rate</Label>
+              <div className="col-span-12 md:col-span-9 text-sm font-medium text-slate-600">{formData.intra_state_tax}</div>
             </div>
 
             <div className="grid grid-cols-12 gap-6 items-center">
-              <Label className="col-span-3 text-[13px] text-slate-400 underline decoration-dotted">Inter State Tax Rate</Label>
-              <div className="col-span-9 text-sm font-medium text-slate-600">{formData.inter_state_tax}</div>
+              <Label className="col-span-12 md:col-span-3 text-[13px] text-slate-400 underline decoration-dotted">Inter State Tax Rate</Label>
+              <div className="col-span-12 md:col-span-9 text-sm font-medium text-slate-600">{formData.inter_state_tax}</div>
             </div>
           </div>
         </div>

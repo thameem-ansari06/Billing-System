@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Truck, Search } from 'lucide-react';
+import { Plus, Truck, Search, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -34,9 +34,15 @@ export default function DeliveryChallansTab() {
     }
   };
 
+  const handleChallanClick = (e, num) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.open(`http://localhost:8000/api/delivery-challans/pdf-view/${num}`, '_blank');
+  };
+
   return (
     <div className="animate-in fade-in duration-500 space-y-6">
-      <div className="flex justify-between items-center bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
             <Truck size={28} />
@@ -46,7 +52,7 @@ export default function DeliveryChallansTab() {
             <p className="text-sm text-slate-500">Create and manage delivery challans for shipments</p>
           </div>
         </div>
-        <Button onClick={() => navigate('/delivery-challans/new')} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-11">
+        <Button onClick={() => navigate('/delivery-challans/new')} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-11 w-full md:w-auto">
           <Plus size={18} className="mr-2" /> New Challan
         </Button>
       </div>
@@ -59,7 +65,8 @@ export default function DeliveryChallansTab() {
           </div>
         </div>
         
-        <table className="w-full text-left">
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-left whitespace-nowrap">
           <thead className="bg-slate-50 border-b">
             <tr className="text-slate-500 text-sm">
               <th className="p-4 font-semibold">Date</th>
@@ -80,9 +87,17 @@ export default function DeliveryChallansTab() {
               </tr>
             ) : (
               challans.map((c) => (
-                <tr key={c.challan_id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => {}}>
+                <tr key={c.id} className="hover:bg-slate-50 transition-colors">
                   <td className="p-4 text-sm text-slate-600">{c.challan_date}</td>
-                  <td className="p-4 font-bold text-indigo-600">{c.challan_number}</td>
+                  <td className="p-4">
+                    <a 
+                      href="#" 
+                      onClick={(e) => handleChallanClick(e, c.challan_number)}
+                      className="inline-flex items-center gap-1 font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 cursor-pointer min-h-[44px] px-2 rounded-md transition-colors"
+                    >
+                      {c.challan_number} <Eye size={18} className="ml-1" />
+                    </a>
+                  </td>
                   <td className="p-4 text-sm text-slate-500">{c.reference_number || '-'}</td>
                   <td className="p-4 font-bold text-slate-700">{c.customer_name}</td>
                   <td className="p-4 text-center">
@@ -96,6 +111,7 @@ export default function DeliveryChallansTab() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

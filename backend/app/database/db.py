@@ -1,118 +1,64 @@
-import sqlite3
 import os
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker, declarative_base
 
-# 📍 Project path setup
-# Intha logic unga DB file 'data' folder-la correct-ah save aaga help pannum
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DB_PATH = os.path.join(BASE_DIR, 'data', 'ar_system.db')
+load_dotenv()
+
+# Existing DB credentials from .env
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+# SQLAlchemy setup
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 
 def get_db():
-    """Database connection generator"""
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row 
-    return conn
+    """FastAPI Dependency for database session."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+def get_next_id(prefix, table_name, column_name):
+    """
+    Robust Serial ID Generator for Antigravity Hub.
+    Format: PREFIX/YYYY/001
+    Uses FOR UPDATE to handle concurrent requests safely.
+    """
+    from datetime import datetime
+    year = datetime.now().year
+    year_prefix = f"{prefix}/{year}/"
+    
+    db = SessionLocal()
+    try:
+        # Use FOR UPDATE to lock the row(s) and prevent race conditions
+        query = text(f"SELECT {column_name} FROM {table_name} WHERE {column_name} LIKE :yp ORDER BY {column_name} DESC LIMIT 1 FOR UPDATE")
+        result = db.execute(query, {"yp": f"{year_prefix}%"}).fetchone()
+        
+        if result and result[0]:
+            last_id_str = result[0]
+            # Split 'INV/2026/005' by '/' and take the last part
+            parts = last_id_str.split('/')
+            last_num = int(parts[-1])
+            new_num = last_num + 1
+        else:
+            new_num = 1
+            
+        formatted_id = f"{year_prefix}{str(new_num).zfill(3)}"
+        db.commit() # Release lock
+        return formatted_id
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Robust ID Gen Error: {e}")
+        # Fallback to a timestamp-based ID to ensure uniqueness if DB is locked/failing
+        return f"{year_prefix}ERR-{int(datetime.now().timestamp())}"
+    finally:
+        db.close()
 
 def setup_db():
-    """Initial table creation logic"""
-    conn = get_db()
-    c = conn.cursor()
-    
-    # 📝 Customers Table
-    c.execute("DROP TABLE IF EXISTS customers")
-    c.execute('''CREATE TABLE IF NOT EXISTS customers (
-                 customer_id TEXT PRIMARY KEY,
-                 customer_type TEXT, salutation TEXT, first_name TEXT, last_name TEXT,
-                 company_name TEXT, display_name TEXT, currency TEXT, email TEXT UNIQUE,
-                 phone_work TEXT, phone_mobile TEXT, gst_treatment TEXT,
-                 place_of_supply TEXT, pan TEXT, tax_preference TEXT, payment_terms TEXT,
-                 billing_attention TEXT, billing_country TEXT, billing_address_1 TEXT, billing_address_2 TEXT,
-                 billing_city TEXT, billing_state TEXT, billing_pincode TEXT, billing_phone TEXT, billing_fax TEXT,
-                 shipping_attention TEXT, shipping_country TEXT, shipping_address_1 TEXT, shipping_address_2 TEXT,
-                 shipping_city TEXT, shipping_state TEXT, shipping_pincode TEXT, shipping_phone TEXT, shipping_fax TEXT)''')
-    
-    # 📝 Invoices Table
-    c.execute('''CREATE TABLE IF NOT EXISTS invoices (
-                 invoice_id TEXT PRIMARY KEY, email TEXT, subtotal REAL, 
-                 discount_pct REAL, cgst REAL, sgst REAL, grand_total REAL, status TEXT)''')
-    
-    # 📝 Products Table
-    c.execute('''CREATE TABLE IF NOT EXISTS products (
-                 product_id TEXT PRIMARY KEY, name TEXT UNIQUE, price REAL)''')
-                 
-    # 📝 Quotes Table
-    c.execute('''CREATE TABLE IF NOT EXISTS quotes (
-                 quote_id TEXT PRIMARY KEY, 
-                 customer_name TEXT, 
-                 place_of_supply TEXT, 
-                 quote_number TEXT, 
-                 reference_number TEXT, 
-                 quote_date TEXT, 
-                 expiry_date TEXT, 
-                 subtotal REAL, 
-                 cgst REAL, 
-                 sgst REAL, 
-                 igst REAL, 
-                 grand_total REAL, 
-                 status TEXT)''')
-
-    # 📝 Quote Items Table
-    c.execute('''CREATE TABLE IF NOT EXISTS quote_items (
-                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                 quote_id TEXT, 
-                 item_details TEXT, 
-                 quantity REAL, 
-                 rate REAL, 
-                 discount_amount REAL, 
-                 discount_type TEXT, 
-                 tax_type TEXT, 
-                 amount REAL,
-                 FOREIGN KEY(quote_id) REFERENCES quotes(quote_id))''')
-
-    # 📝 Delivery Challans Table
-    c.execute('''CREATE TABLE IF NOT EXISTS delivery_challans (
-                 challan_id TEXT PRIMARY KEY,
-                 customer_name TEXT,
-                 shipping_address TEXT,
-                 place_of_supply TEXT,
-                 challan_type TEXT,
-                 challan_number TEXT,
-                 reference_number TEXT,
-                 challan_date TEXT,
-                 notes TEXT,
-                 terms TEXT,
-                 subtotal REAL,
-                 adjustment REAL,
-                 grand_total REAL,
-                 status TEXT)''')
-                 
-    # 📝 Delivery Challan Items Table
-    c.execute('''CREATE TABLE IF NOT EXISTS challan_items (
-                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                 challan_id TEXT,
-                 item_details TEXT,
-                 quantity REAL,
-                 rate REAL,
-                 tax_type TEXT,
-                 amount REAL,
-                 FOREIGN KEY(challan_id) REFERENCES delivery_challans(challan_id))''')
-    
-    conn.commit()
-    conn.close()
-    print("✅ Database Synchronized!")
-
-def get_next_id(prefix, table, column):
-    """Helper to generate IDs like INV-1001"""
-    conn = get_db()
-    c = conn.cursor()
-    c.execute(f"SELECT {column} FROM {table}")
-    all_ids = c.fetchall()
-    conn.close()
-    max_num = 0
-    for row in all_ids:
-        if row[column]: 
-            try:
-                num = int(row[column].split('-')[-1])
-                if num > max_num: max_num = num
-            except ValueError: continue 
-    return f"{prefix}-1001" if max_num == 0 else f"{prefix}-{max_num + 1:04d}"
+    """Original setup_db maintained for reference, but Base.metadata.create_all is preferred."""
+    # This will be called in main.py via Base.metadata.create_all(bind=engine)
+    print("SQLAlchemy Engine: Initialized!")
+

@@ -18,15 +18,15 @@ export default function CustomersTab() {
 
   return (
     <div className="animate-in fade-in duration-500 space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
         {/* 🔥 REDIRECTION LOGIC */}
-        <Button onClick={() => navigate('/customers/new')} className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-11">
+        <Button onClick={() => navigate('/customers/new')} className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-11 w-full md:w-auto">
           <Plus size={18} className="mr-2" /> New Customer
         </Button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border overflow-x-auto">
         <Table>
           <TableHeader className="bg-slate-50">
             <TableRow>

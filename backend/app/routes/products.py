@@ -1,28 +1,32 @@
-from fastapi import APIRouter, HTTPException
-from app.database.db import get_db
-from app.models.schemas import ProductModel
-import time
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from typing import List
+from app.database.db import get_db, get_next_id
+from app.models.orm import Product
+from app.models.schemas import ProductModel, ProductRead
 
 router = APIRouter(prefix="/api/products", tags=["Products"])
 
 @router.get("/")
-def get_all_products():
-    conn = get_db()
-    products = conn.execute("SELECT * FROM products").fetchall()
-    conn.close()
-    return {"products": [dict(p) for p in products]}
+def get_all_products(db: Session = Depends(get_db)):
+    products = db.query(Product).all()
+    return {"products": products}
 
-@router.post("/")
-def create_product(prod: ProductModel):
-    conn = get_db()
-    c = conn.cursor()
-    prod_id = f"PROD-{int(time.time())}"
+
+@router.post("/", response_model=ProductRead)
+def create_product(prod_data: ProductModel, db: Session = Depends(get_db)):
+    # Generate Product ID
+    prod_id = get_next_id("PROD", "products", "product_id")
+    
     try:
-        c.execute("INSERT INTO products (product_id, name, price) VALUES (?, ?, ?)", 
-                  (prod_id, prod.name, prod.price))
-        conn.commit()
-        return {"message": "Product Added", "id": prod_id}
+        db_product = Product(
+            product_id=prod_id,
+            **prod_data.model_dump()
+        )
+        db.add(db_product)
+        db.commit()
+        db.refresh(db_product)
+        return db_product
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        conn.close()
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))

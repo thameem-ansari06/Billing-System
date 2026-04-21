@@ -37,7 +37,7 @@ export default function QuotesTab() {
 
   return (
     <div className="animate-in fade-in duration-500 space-y-6">
-      <div className="flex justify-between items-center bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
             <FileText size={28} />
@@ -47,7 +47,7 @@ export default function QuotesTab() {
             <p className="text-sm text-slate-500">Manage your quotes and send proposals to customers</p>
           </div>
         </div>
-        <Button onClick={() => navigate('/quotes/new')} className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-11">
+        <Button onClick={() => navigate('/quotes/new')} className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-11 w-full md:w-auto">
           <Plus size={18} className="mr-2" /> New Quote
         </Button>
       </div>
@@ -60,7 +60,8 @@ export default function QuotesTab() {
           </div>
         </div>
         
-        <table className="w-full text-left">
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-left whitespace-nowrap">
           <thead className="bg-slate-50 border-b">
             <tr className="text-slate-500 text-sm">
               <th className="p-4 font-semibold">Date</th>
@@ -97,6 +98,7 @@ export default function QuotesTab() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

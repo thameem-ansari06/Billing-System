@@ -96,8 +96,8 @@ export default function CreateCustomer() {
           <section className="space-y-6">
             {/* Customer Type */}
             <div className="grid grid-cols-12 gap-4 items-center">
-              <Label className="col-span-3 text-sm font-medium text-slate-600">Customer Type</Label>
-              <div className="col-span-9 flex gap-6">
+              <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-600">Customer Type</Label>
+              <div className="col-span-12 md:col-span-9 flex gap-6">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="radio" checked={formData.customer_type === 'Business'} onChange={() => updateField('customer_type', 'Business')} className="w-4 h-4 accent-blue-600" />
                   <span className="text-sm text-slate-700">Business</span>
@@ -111,35 +111,35 @@ export default function CreateCustomer() {
 
             {/* Primary Contact */}
             <div className="grid grid-cols-12 gap-4 items-start">
-              <Label className="col-span-3 text-sm font-medium text-slate-600 pt-2">Primary Contact</Label>
-              <div className="col-span-9 grid grid-cols-12 gap-3">
-                <div className="col-span-3">
+              <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-600 pt-2">Primary Contact</Label>
+              <div className="col-span-12 md:col-span-9 grid grid-cols-12 gap-3">
+                <div className="col-span-12 md:col-span-3">
                   <Select value={formData.salutation} onValueChange={(v) => updateField('salutation', v)}>
                     <SelectTrigger className="w-full h-11 border-slate-200"><SelectValue /></SelectTrigger>
                     <SelectContent><SelectItem value="Mr.">Mr.</SelectItem><SelectItem value="Mrs.">Mrs.</SelectItem></SelectContent>
                   </Select>
                 </div>
-                <Input className="col-span-4 h-11 border-slate-200" placeholder="First Name" value={formData.first_name} onChange={(e) => updateField('first_name', e.target.value)} />
+                <Input className="col-span-12 md:col-span-4 h-11 border-slate-200" placeholder="First Name" value={formData.first_name} onChange={(e) => updateField('first_name', e.target.value)} />
                 <Input className="col-span-5 h-11 border-slate-200" placeholder="Last Name" value={formData.last_name} onChange={(e) => updateField('last_name', e.target.value)} />
               </div>
             </div>
 
             {/* Company Name */}
             <div className="grid grid-cols-12 gap-4 items-center">
-              <Label className="col-span-3 text-sm font-medium text-slate-600">Company Name</Label>
-              <Input className="col-span-9 h-11 border-slate-200" value={formData.company_name} onChange={(e) => updateField('company_name', e.target.value)} />
+              <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-600">Company Name</Label>
+              <Input className="col-span-12 md:col-span-9 h-11 border-slate-200" value={formData.company_name} onChange={(e) => updateField('company_name', e.target.value)} />
             </div>
 
             {/* Display Name */}
             <div className="grid grid-cols-12 gap-4 items-center">
-              <Label className="col-span-3 text-sm font-bold text-red-600">Customer Display Name *</Label>
-              <Input className="col-span-9 h-11 border-red-100 bg-red-50/10 focus-visible:ring-red-400" value={formData.display_name} onChange={(e) => updateField('display_name', e.target.value)} />
+              <Label className="col-span-12 md:col-span-3 text-sm font-bold text-red-600">Customer Display Name *</Label>
+              <Input className="col-span-12 md:col-span-9 h-11 border-red-100 bg-red-50/10 focus-visible:ring-red-400" value={formData.display_name} onChange={(e) => updateField('display_name', e.target.value)} />
             </div>
 
             {/* Currency */}
             <div className="grid grid-cols-12 gap-4 items-center">
-              <Label className="col-span-3 text-sm font-medium text-slate-600">Currency</Label>
-              <div className="col-span-9">
+              <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-600">Currency</Label>
+              <div className="col-span-12 md:col-span-9">
                 <Input className="h-11 border-slate-200 bg-slate-50" value="Indian Rupee" disabled />
                 <p className="text-xs text-slate-400 mt-1">Currency cannot be edited as multi-currency handling is unavailable in Zoho Invoice.</p>
               </div>
@@ -147,8 +147,8 @@ export default function CreateCustomer() {
 
             {/* Email Address */}
             <div className="grid grid-cols-12 gap-4 items-center">
-              <Label className="col-span-3 text-sm font-medium text-slate-600">Email Address</Label>
-              <div className="col-span-9 relative">
+              <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-600">Email Address</Label>
+              <div className="col-span-12 md:col-span-9 relative">
                 <Mail className="absolute left-3 top-3 text-slate-400" size={18} />
                 <Input className="pl-10 h-11 border-slate-200" value={formData.email} onChange={(e) => updateField('email', e.target.value)} />
               </div>
@@ -156,8 +156,8 @@ export default function CreateCustomer() {
 
             {/* Customer Phone (Work + Mobile) */}
             <div className="grid grid-cols-12 gap-4 items-start">
-              <Label className="col-span-3 text-sm font-medium text-slate-600 pt-2">Customer Phone</Label>
-              <div className="col-span-9 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-600 pt-2">Customer Phone</Label>
+              <div className="col-span-12 md:col-span-9 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="relative">
                   <Phone className="absolute left-3 top-3 text-slate-400" size={18} />
                   <Input className="pl-10 h-11 border-slate-200" placeholder="Work Phone" value={formData.phone_work} onChange={(e) => updateField('phone_work', e.target.value)} />
@@ -189,8 +189,8 @@ export default function CreateCustomer() {
             {/* --- Other Details Tab --- */}
             <TabsContent value="otherdetails" className="pt-8 space-y-6 animate-in fade-in">
               <div className="grid grid-cols-12 gap-4 items-center">
-                <Label className="col-span-3 text-sm font-bold text-red-600">GST Treatment *</Label>
-                <div className="col-span-6 lg:col-span-5">
+                <Label className="col-span-12 md:col-span-3 text-sm font-bold text-red-600">GST Treatment *</Label>
+                <div className="col-span-12 md:col-span-6 lg:col-span-5">
                   <Select value={formData.gst_treatment} onValueChange={(v) => updateField('gst_treatment', v)}>
                     <SelectTrigger className="w-full h-11"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -202,8 +202,8 @@ export default function CreateCustomer() {
                 </div>
               </div>
               <div className="grid grid-cols-12 gap-4 items-center">
-                <Label className="col-span-3 text-sm font-medium text-slate-600">Place of Supply *</Label>
-                <div className="col-span-6 lg:col-span-5">
+                <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-600">Place of Supply *</Label>
+                <div className="col-span-12 md:col-span-6 lg:col-span-5">
                   <Select value={formData.place_of_supply} onValueChange={(v) => updateField('place_of_supply', v)}>
                     <SelectTrigger className="w-full h-11"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -215,12 +215,12 @@ export default function CreateCustomer() {
                 </div>
               </div>
               <div className="grid grid-cols-12 gap-4 items-center">
-                <Label className="col-span-3 text-sm font-medium text-slate-600">PAN</Label>
-                <Input className="col-span-6 lg:col-span-5 h-11 font-mono uppercase" placeholder="ABCDE1234F" value={formData.pan} onChange={(e) => updateField('pan', e.target.value)} />
+                <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-600">PAN</Label>
+                <Input className="col-span-12 md:col-span-6 lg:col-span-5 h-11 font-mono uppercase" placeholder="ABCDE1234F" value={formData.pan} onChange={(e) => updateField('pan', e.target.value)} />
               </div>
               <div className="grid grid-cols-12 gap-4 items-center">
-                <Label className="col-span-3 text-sm font-medium text-slate-600">Tax Preference *</Label>
-                <div className="col-span-9 flex gap-6">
+                <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-600">Tax Preference *</Label>
+                <div className="col-span-12 md:col-span-9 flex gap-6">
                   <label className="flex items-center gap-2">
                     <input type="radio" checked={formData.tax_preference === 'Taxable'} onChange={() => updateField('tax_preference', 'Taxable')} className="w-4 h-4" /> Taxable
                   </label>
@@ -230,8 +230,8 @@ export default function CreateCustomer() {
                 </div>
               </div>
               <div className="grid grid-cols-12 gap-4 items-center">
-                <Label className="col-span-3 text-sm font-medium text-slate-600">Payment Terms</Label>
-                <div className="col-span-6 lg:col-span-5">
+                <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-600">Payment Terms</Label>
+                <div className="col-span-12 md:col-span-6 lg:col-span-5">
                   <Select value={formData.payment_terms} onValueChange={(v) => updateField('payment_terms', v)}>
                     <SelectTrigger className="w-full h-11"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -243,20 +243,20 @@ export default function CreateCustomer() {
                 </div>
               </div>
               <div className="grid grid-cols-12 gap-4 items-center">
-                <Label className="col-span-3 text-sm font-medium text-slate-600">Price List</Label>
-                <Input className="col-span-6 lg:col-span-5 h-11" placeholder="Select price list" />
+                <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-600">Price List</Label>
+                <Input className="col-span-12 md:col-span-6 lg:col-span-5 h-11" placeholder="Select price list" />
               </div>
               <div className="grid grid-cols-12 gap-4 items-center">
-                <Label className="col-span-3 text-sm font-medium text-slate-600">Enable Portal?</Label>
-                <div className="col-span-9 flex items-center gap-2">
+                <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-600">Enable Portal?</Label>
+                <div className="col-span-12 md:col-span-9 flex items-center gap-2">
                   <Checkbox checked={false} onCheckedChange={() => {}} />
                   <span className="text-sm text-slate-600">Allow portal access for this customer</span>
                 </div>
               </div>
               <div className="grid grid-cols-12 gap-4 items-center">
-                <Label className="col-span-3 text-sm font-medium text-slate-600">Portal Language</Label>
+                <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-600">Portal Language</Label>
                 <Select defaultValue="English">
-                  <SelectTrigger className="col-span-6 lg:col-span-5 h-11"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="col-span-12 md:col-span-6 lg:col-span-5 h-11"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="English">English</SelectItem>
                     <SelectItem value="Hindi">Hindi</SelectItem>
@@ -264,8 +264,8 @@ export default function CreateCustomer() {
                 </Select>
               </div>
               <div className="grid grid-cols-12 gap-4 items-start">
-                <Label className="col-span-3 text-sm font-medium text-slate-600">Documents</Label>
-                <div className="col-span-9 space-y-2">
+                <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-600">Documents</Label>
+                <div className="col-span-12 md:col-span-9 space-y-2">
                   <Button variant="outline" className="gap-2"><Upload size={16} /> Upload File</Button>
                   <p className="text-xs text-slate-400">You can upload a maximum of 3 files, 10MB each</p>
                   <a href="#" className="text-blue-600 text-sm">Add more details</a>
@@ -370,7 +370,7 @@ export default function CreateCustomer() {
                         </TableCell>
                         <TableCell className="p-0 text-center w-12">
                           {formData.contact_persons.length > 1 && (
-                            <button onClick={() => removeContactPerson(idx)} className="p-2 text-slate-400 hover:text-red-500"><Trash2 size={16} /></button>
+                            <button onClick={() => removeContactPerson(idx)} className="text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-md focus:outline-none transition-colors h-11 w-11 flex items-center justify-center min-h-[44px] min-w-[44px]"><Trash2 size={16} /></button>
                           )}
                         </TableCell>
                       </TableRow>
@@ -389,15 +389,15 @@ export default function CreateCustomer() {
             <TabsContent value="customfields" className="pt-8 animate-in fade-in">
               <div className="space-y-4">
                 <div className="grid grid-cols-12 gap-4 items-center">
-                  <Label className="col-span-3 text-sm font-medium text-slate-600">Custom Fields</Label>
-                  <div className="col-span-9">
+                  <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-600">Custom Fields</Label>
+                  <div className="col-span-12 md:col-span-9">
                     <Button variant="outline" className="gap-2" onClick={() => {}}><Plus size={16} /> Add Custom Field</Button>
                   </div>
                 </div>
                 {/* Example custom field rows - you can expand this dynamically */}
                 <div className="grid grid-cols-12 gap-4">
-                  <div className="col-span-3"></div>
-                  <div className="col-span-9 text-sm text-slate-400">No custom fields added yet.</div>
+                  <div className="col-span-12 md:col-span-3"></div>
+                  <div className="col-span-12 md:col-span-9 text-sm text-slate-400">No custom fields added yet.</div>
                 </div>
               </div>
             </TabsContent>
@@ -405,8 +405,8 @@ export default function CreateCustomer() {
             {/* --- Remarks Tab --- */}
             <TabsContent value="remarks" className="pt-8 animate-in fade-in">
               <div className="grid grid-cols-12 gap-4">
-                <Label className="col-span-3 text-sm font-medium text-slate-600">Remarks</Label>
-                <Textarea className="col-span-9 min-h-[150px]" placeholder="Add any remarks here..." />
+                <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-600">Remarks</Label>
+                <Textarea className="col-span-12 md:col-span-9 min-h-[150px]" placeholder="Add any remarks here..." />
               </div>
             </TabsContent>
           </Tabs>

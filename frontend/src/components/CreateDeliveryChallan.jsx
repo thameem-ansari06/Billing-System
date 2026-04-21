@@ -11,6 +11,7 @@ export default function CreateDeliveryChallan() {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
+  const [invoices, setInvoices] = useState([]);
 
   // Base state
   const [formData, setFormData] = useState({
@@ -23,6 +24,13 @@ export default function CreateDeliveryChallan() {
     challan_date: new Date().toISOString().split('T')[0],
     notes: '',
     terms: '',
+    // Logistics Details
+    vehicle_number: '',
+    driver_name: '',
+    driver_mobile: '',
+    transporter_name: '',
+    waybill_number: '',
+    dispatch_datetime: new Date().toISOString().slice(0, 16),
   });
 
   // Items state
@@ -40,7 +48,68 @@ export default function CreateDeliveryChallan() {
     fetch('http://localhost:8000/api/products')
       .then(res => res.json())
       .then(data => setProducts(data.products || []));
+
+    fetch('http://localhost:8000/api/invoices')
+      .then(res => res.json())
+      .then(data => setInvoices(data.invoices || []));
+
+    // Fetch Next Challan Number
+    fetch('http://localhost:8000/api/delivery-challans/next-number')
+      .then(res => res.json())
+      .then(data => {
+         if (data.next_number) handleBaseChange('challan_number', data.next_number);
+      });
   }, []);
+
+  const mirrorInvoice = async (invoiceNumber) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/invoices/${invoiceNumber}`);
+      if (!response.ok) return;
+      const inv = await response.json();
+      
+      // Update form data
+      setFormData(prev => ({
+        ...prev,
+        customer_name: inv.customer_name,
+        place_of_supply: inv.place_of_supply,
+        reference_number: inv.invoice_number,
+        terms: inv.terms_conditions || prev.terms,
+        notes: inv.customer_notes || prev.notes,
+        related_invoice_id: inv.id
+      }));
+
+      // Find customer for address
+      const customer = customers.find(c => c.display_name === inv.customer_name || `${c.first_name} ${c.last_name}` === inv.customer_name);
+      if (customer) {
+        const addr = [
+          customer.shipping_attention,
+          customer.shipping_address_1,
+          customer.shipping_address_2,
+          customer.shipping_city,
+          customer.shipping_state,
+          customer.shipping_pincode,
+          customer.shipping_country
+        ].filter(Boolean).join(', ');
+        handleBaseChange('shipping_address', addr);
+      }
+
+      // Update items
+      const mirroredItems = (inv.items || []).map((item, idx) => ({
+        id: idx + 1,
+        item_details: item.item_details,
+        quantity: item.quantity,
+        rate: item.rate,
+        tax_type: item.tax_type,
+        amount: item.amount
+      }));
+      setItems(mirroredItems.length > 0 ? mirroredItems : [{ id: 1, item_details: '', quantity: 1, rate: 0, tax_type: 'GST18', amount: 0 }]);
+      
+    } catch (error) {
+      console.error("Mirroring Error:", error);
+    }
+  };
+
+
 
   const handleBaseChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
@@ -48,7 +117,7 @@ export default function CreateDeliveryChallan() {
 
   const handleCustomerChange = (v) => {
     handleBaseChange('customer_name', v);
-    const selectedCust = customers.find(c => c.customer_id === v || c.display_name === v || c.first_name === v);
+    const selectedCust = customers.find(c => (c.display_name || c.first_name) === v);
     if (selectedCust) {
       handleBaseChange('place_of_supply', selectedCust.place_of_supply || 'Tamil Nadu');
       // Format full shipping address
@@ -148,10 +217,26 @@ export default function CreateDeliveryChallan() {
 
       <div className="p-6 lg:p-10 space-y-10">
         <section className="space-y-6 max-w-4xl">
+          <div className="grid grid-cols-12 gap-6 items-center bg-blue-50/30 p-4 rounded-lg border border-blue-100">
+            <Label className="col-span-12 md:col-span-3 text-sm font-bold text-blue-700">Link with Invoice (Mirror)</Label>
+            <div className="col-span-12 md:col-span-8">
+              <Select onValueChange={mirrorInvoice}>
+                <SelectTrigger className="h-11 border-blue-200 bg-white">
+                  <SelectValue placeholder="Select an Invoice to copy items..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {invoices.map((inv, i) => (
+                    <SelectItem key={i} value={inv.invoice_number}>{inv.invoice_number} - {inv.customer_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-3 text-sm font-bold text-[#ef4444]">Customer Name *</Label>
-            <div className="col-span-8">
-              <Select onValueChange={handleCustomerChange}>
+            <Label className="col-span-12 md:col-span-3 text-sm font-bold text-[#ef4444]">Customer Name *</Label>
+            <div className="col-span-12 md:col-span-8">
+              <Select value={formData.customer_name} onValueChange={handleCustomerChange}>
                 <SelectTrigger className="h-11 border-slate-200 focus:ring-1 focus:ring-indigo-400">
                   <SelectValue placeholder="Select a Customer" />
                 </SelectTrigger>
@@ -166,35 +251,37 @@ export default function CreateDeliveryChallan() {
 
           {formData.shipping_address && (
             <div className="grid grid-cols-12 gap-6 items-start">
-              <Label className="col-span-3 text-sm font-medium text-slate-700 mt-2">Shipping Address</Label>
-              <div className="col-span-8">
+              <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-700 mt-2">Shipping Address</Label>
+              <div className="col-span-12 md:col-span-8">
                 <Textarea 
-                  className="bg-slate-50 border-slate-200 resize-none h-24" 
+                  className="bg-white border-slate-200 resize-none h-24" 
                   value={formData.shipping_address} 
-                  readOnly
+                  onChange={e => handleBaseChange('shipping_address', e.target.value)}
                 />
               </div>
             </div>
           )}
 
-          <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-3 text-sm font-bold text-[#ef4444]">Delivery Challan# *</Label>
-            <Input className="col-span-6 h-11 border-slate-200" value={formData.challan_number} onChange={e => handleBaseChange('challan_number', e.target.value)} />
+          <div className="grid grid-cols-12 gap-6 items-center border-t border-slate-100 pt-6">
+            <Label className="col-span-12 md:col-span-3 text-sm font-bold text-[#ef4444]">Delivery Challan# *</Label>
+            <Input className="col-span-12 md:col-span-6 h-11 border-slate-200" value={formData.challan_number} onChange={e => handleBaseChange('challan_number', e.target.value)} />
           </div>
 
           <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-3 text-sm font-medium text-slate-700">Reference#</Label>
-            <Input className="col-span-6 h-11 border-slate-200" value={formData.reference_number} onChange={e => handleBaseChange('reference_number', e.target.value)} />
+            <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-700">Reference#</Label>
+            <Input className="col-span-12 md:col-span-6 h-11 border-slate-200" value={formData.reference_number} onChange={e => handleBaseChange('reference_number', e.target.value)} />
           </div>
 
           <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-3 text-sm font-bold text-[#ef4444]">Delivery Challan Date *</Label>
-            <Input type="date" className="col-span-4 h-11 border-slate-200" value={formData.challan_date} onChange={e => handleBaseChange('challan_date', e.target.value)} />
-          </div>
-
-          <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-3 text-sm font-bold text-[#ef4444]">Challan Type *</Label>
-            <div className="col-span-6">
+             <div className="col-span-12 md:col-span-3">
+                <Label className="text-sm font-bold text-[#ef4444]">Challan Date *</Label>
+             </div>
+             <Input type="date" className="col-span-12 md:col-span-3 h-11 border-slate-200" value={formData.challan_date} onChange={e => handleBaseChange('challan_date', e.target.value)} />
+             
+             <div className="col-span-12 md:col-span-2 text-right px-2">
+                <Label className="text-sm font-bold text-[#ef4444]">Type *</Label>
+             </div>
+             <div className="col-span-12 md:col-span-4">
               <Select value={formData.challan_type} onValueChange={(v) => handleBaseChange('challan_type', v)}>
                 <SelectTrigger className="h-11 border-slate-200">
                   <SelectValue />
@@ -207,6 +294,35 @@ export default function CreateDeliveryChallan() {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-4 pt-4 border-t border-slate-100">
+             <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs">2</span>
+                Logistics & Delivery Details
+             </h3>
+             <div className="grid grid-cols-2 gap-6 ml-10">
+                <div className="space-y-2">
+                   <Label className="text-xs font-semibold text-slate-500 uppercase">Vehicle Number</Label>
+                   <Input value={formData.vehicle_number} onChange={e => handleBaseChange('vehicle_number', e.target.value)} placeholder="TN-01-AB-1234" />
+                </div>
+                <div className="space-y-2">
+                   <Label className="text-xs font-semibold text-slate-500 uppercase">Transporter Name</Label>
+                   <Input value={formData.transporter_name} onChange={e => handleBaseChange('transporter_name', e.target.value)} placeholder="Speed Logistics" />
+                </div>
+                <div className="space-y-2">
+                   <Label className="text-xs font-semibold text-slate-500 uppercase">Driver Name</Label>
+                   <Input value={formData.driver_name} onChange={e => handleBaseChange('driver_name', e.target.value)} placeholder="John Doe" />
+                </div>
+                <div className="space-y-2">
+                   <Label className="text-xs font-semibold text-slate-500 uppercase">Waybill / LR Number</Label>
+                   <Input value={formData.waybill_number} onChange={e => handleBaseChange('waybill_number', e.target.value)} placeholder="LR-782293" />
+                </div>
+                <div className="space-y-2 col-span-12 md:col-span-2">
+                   <Label className="text-xs font-semibold text-slate-500 uppercase">Dispatch Date & Time</Label>
+                   <Input type="datetime-local" value={formData.dispatch_datetime} onChange={e => handleBaseChange('dispatch_datetime', e.target.value)} />
+                </div>
+             </div>
           </div>
         </section>
 
@@ -245,7 +361,7 @@ export default function CreateDeliveryChallan() {
                       ₹{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}
                     </td>
                     <td className="p-2 text-center">
-                      <button onClick={() => removeItemRow(index)} className="p-2 text-slate-400 hover:text-red-500 rounded"><Trash2 size={16} /></button>
+                      <button onClick={() => removeItemRow(index)} className="text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-md focus:outline-none transition-colors h-11 w-11 flex items-center justify-center min-h-[44px] min-w-[44px]"><Trash2 size={16} /></button>
                     </td>
                   </tr>
                 ))}

@@ -1,50 +1,41 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from typing import List
 from app.database.db import get_db, get_next_id
-from app.models.schemas import QuoteCreate
-import time
+from app.models.orm import Quote, QuoteItem
+from app.models.schemas import QuoteCreate, QuoteRead
 
 router = APIRouter(prefix="/api/quotes", tags=["Quotes"])
 
 @router.get("/")
-def get_all_quotes():
-    conn = get_db()
-    quotes = conn.execute("SELECT * FROM quotes").fetchall()
-    
-    result = []
-    for q in quotes:
-        quote_dict = dict(q)
-        items = conn.execute("SELECT * FROM quote_items WHERE quote_id = ?", (quote_dict['quote_id'],)).fetchall()
-        quote_dict['items'] = [dict(i) for i in items]
-        result.append(quote_dict)
-        
-    conn.close()
-    return {"quotes": result}
+def get_all_quotes(db: Session = Depends(get_db)):
+    quotes = db.query(Quote).all()
+    return {"quotes": quotes}
 
-@router.post("/")
-def create_quote(quote: QuoteCreate):
-    conn = get_db()
-    c = conn.cursor()
-    quote_id = get_next_id("QUOTE", "quotes", "quote_id")
+@router.post("/", response_model=QuoteRead)
+def create_quote(quote_data: QuoteCreate, db: Session = Depends(get_db)):
+    # Generate Quote ID
+    quote_id = get_next_id("QUOTE", "quotes", "quote_number")
     
     try:
-        c.execute('''INSERT INTO quotes 
-                     (quote_id, customer_name, place_of_supply, quote_number, reference_number, quote_date, expiry_date, 
-                      subtotal, cgst, sgst, igst, grand_total, status) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
-                  (quote_id, quote.customer_name, quote.place_of_supply, quote.quote_number, 
-                   quote.reference_number, quote.quote_date, quote.expiry_date, quote.subtotal, 
-                   quote.cgst, quote.sgst, quote.igst, quote.grand_total, quote.status))
+        db_quote = Quote(
+            quote_number=quote_id,
+            **quote_data.model_dump(exclude={"items", "quote_number"})
+        )
+        db.add(db_quote)
+        db.flush()
         
-        for item in quote.items:
-            c.execute('''INSERT INTO quote_items 
-                         (quote_id, item_details, quantity, rate, discount_amount, discount_type, tax_type, amount)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-                      (quote_id, item.item_details, item.quantity, item.rate, item.discount_amount, 
-                       item.discount_type, item.tax_type, item.amount))
+        for item_data in quote_data.items:
+            db_item = QuoteItem(
+                quote_id=db_quote.id,
+                **item_data.model_dump()
+            )
+            db.add(db_item)
             
-        conn.commit()
-        return {"message": "Success", "id": quote_id}
+        db.commit()
+        db.refresh(db_quote)
+        return db_quote
     except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        conn.close()
+
