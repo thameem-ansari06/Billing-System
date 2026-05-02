@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import Sidebar from './Sidebar';
+import ProfileDropdown from './ProfileDropdown';
 
 const TopHeader = () => {
   const [open, setOpen] = useState(false);
@@ -32,10 +33,7 @@ const TopHeader = () => {
         </div>
       </div>
       
-      <Avatar className="h-9 w-9 cursor-pointer shadow-sm hover:shadow-md transition-shadow">
-        <AvatarImage src="https://github.com/shadcn.png" alt="@romeo" />
-        <AvatarFallback className="bg-primary text-primary-foreground font-semibold">R</AvatarFallback>
-      </Avatar>
+      <ProfileDropdown />
     </header>
   );
 };

@@ -32,10 +32,10 @@ def generate_pdf_invoice(invoice_id, customer_email, items_list, tax_data=None, 
         igst = 0
         grand_total = subtotal + total_gst
 
-    # PDF Setup
-    save_folder = os.path.join("data", "invoices")
-    # Sanitize invoice_id for filename (replace slashes with dashes to avoid directory issues)
-    safe_invoice_id = invoice_id.replace("/", "-").replace("\\", "-")
+    # PDF Setup (Migrated to Physical Storage)
+    save_folder = os.path.join("static", "invoices")
+    # Sanitize invoice_id for filename (replace slashes with underscores)
+    safe_invoice_id = invoice_id.replace("/", "_").replace("\\", "_")
     pdf_path = os.path.join(save_folder, f"{safe_invoice_id}.pdf")
     
     os.makedirs(os.path.dirname(pdf_path), exist_ok=True)

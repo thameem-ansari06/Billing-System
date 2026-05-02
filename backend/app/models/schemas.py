@@ -1,10 +1,109 @@
 from pydantic import BaseModel, EmailStr, ConfigDict
-from typing import List, Optional
+from typing import Any, List, Optional, Dict
 from datetime import datetime
+from .enums import DeliveryStatus
 
 # Common Configuration
 class ORMBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
+# 0. Auth & Users
+class UserCreate(ORMBase):
+    username: str
+    password: str
+    role: Optional[str] = "user"
+
+class UserRead(ORMBase):
+    id: Any
+    username: str
+    role: str
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address_line: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    gstin: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+class UserUpdate(ORMBase):
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address_line: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    gstin: Optional[str] = None
+    current_password: Optional[str] = None
+    new_password: Optional[str] = None
+
+class SignupRequest(ORMBase):
+    """Payload for the public POST /auth/signup endpoint."""
+    username: str
+    password: str
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    username: Optional[str] = None
+    role: Optional[str] = None
+
+# 2. Product Model
+class ProductModel(ORMBase):
+    name: str
+    price: float
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+    gst_percentage: Optional[float] = 18.0
+    stock_quantity: Optional[int] = 0
+
+class ProductRead(ProductModel):
+    id: int
+    product_id: str
+
+class OrderItemCreate(ORMBase):
+    product_id: int
+    quantity: int
+
+class OrderSubmission(ORMBase):
+    items: List[OrderItemCreate]
+
+class OrderItemRead(OrderItemCreate):
+    id: int
+    price_at_order: float
+    product: Optional[ProductRead] = None
+
+class DeliveryTaskRef(ORMBase):
+    id: int
+    status: str
+
+class OrderCreate(ORMBase):
+    user_id: int
+    total_amount: float
+    status: Optional[str] = "Placed"
+
+class InvoiceRef(ORMBase):
+    """Minimal invoice reference embedded in OrderRead so the customer portal
+    can detect whether admin has generated an invoice for the order."""
+    id: int
+    invoice_number: str
+    status: str
+    grand_total: Optional[float] = 0.0
+    delivery_tasks: List[DeliveryTaskRef] = []
+
+class OrderRead(OrderCreate):
+    id: int
+    created_at: datetime
+    order_items: List[OrderItemRead] = []
+    user: Optional[UserRead] = None
+    invoices: List[InvoiceRef] = []
 
 # 1. Customer Model
 class ContactPersonBase(ORMBase):
@@ -63,15 +162,6 @@ class CustomerRead(CustomerCreate):
     customer_id: str
     created_at: datetime
 
-# 2. Product Model
-class ProductModel(ORMBase):
-    name: str
-    price: float
-
-class ProductRead(ProductModel):
-    id: int
-    product_id: str
-
 # 3. Invoice Models
 class InvoiceItemBase(ORMBase):
     item_details: str
@@ -83,12 +173,12 @@ class InvoiceItemBase(ORMBase):
     amount: float
 
 class InvoiceCreate(ORMBase):
-    customer_name: str
-    place_of_supply: str
+    customer_name: Optional[str] = None
+    place_of_supply: Optional[str] = None
     invoice_number: str
-    reference_number: str
-    invoice_date: str
-    due_date: str
+    reference_number: Optional[str] = None
+    invoice_date: Optional[str] = None
+    due_date: Optional[str] = None
     subtotal: float
     cgst: float
     sgst: float
@@ -105,6 +195,8 @@ class InvoiceCreate(ORMBase):
     salesperson: Optional[str] = ""
     tds_amount: float = 0.0
     related_challan_id: Optional[int] = None
+    order_id: Optional[int] = None
+    user_id: Optional[int] = None
     items: List[InvoiceItemBase]
 
 class InvoiceRead(InvoiceCreate):
@@ -123,18 +215,20 @@ class QuoteItemBase(ORMBase):
     amount: float
 
 class QuoteCreate(ORMBase):
-    customer_name: str
-    place_of_supply: str
+    customer_name: Optional[str] = None
+    place_of_supply: Optional[str] = None
     quote_number: str
-    reference_number: str
-    quote_date: str
-    expiry_date: str
+    reference_number: Optional[str] = None
+    quote_date: Optional[str] = None
+    expiry_date: Optional[str] = None
     subtotal: float
     cgst: float
     sgst: float
     igst: float
     grand_total: float
-    status: str = "Draft"
+    status: str = "pending_approval"
+    order_id: Optional[int] = None
+    user_id: Optional[int] = None
     items: List[QuoteItemBase]
 
 class QuoteRead(QuoteCreate):
@@ -151,15 +245,15 @@ class ChallanItemBase(ORMBase):
     amount: float
 
 class DeliveryChallanCreate(ORMBase):
-    customer_name: str
-    shipping_address: str
-    place_of_supply: str
-    challan_type: str
+    customer_name: Optional[str] = None
+    shipping_address: Optional[str] = None
+    place_of_supply: Optional[str] = None
+    challan_type: Optional[str] = None
     challan_number: str
-    reference_number: str
-    challan_date: str
-    notes: str
-    terms: str
+    reference_number: Optional[str] = None
+    challan_date: Optional[str] = None
+    notes: Optional[str] = None
+    terms: Optional[str] = None
     subtotal: float
     adjustment: float
     grand_total: float
@@ -172,9 +266,55 @@ class DeliveryChallanCreate(ORMBase):
     transporter_name: Optional[str] = ""
     waybill_number: Optional[str] = ""
     dispatch_datetime: Optional[datetime] = None
+    order_id: Optional[int] = None
     items: List[ChallanItemBase]
 
 class DeliveryChallanRead(DeliveryChallanCreate):
     id: int
     created_at: datetime
-    items: List[ChallanItemBase]
+    items: List[ChallanItemBase]
+
+
+
+# 6. Delivery Task Models
+class DeliveryTaskBase(ORMBase):
+    invoice_id: Optional[Any] = None
+    driver_id: Optional[Any] = None
+    customer_name: Optional[str] = None
+    customer_address: Optional[str] = None
+    contact_number: Optional[str] = None
+    status: Optional[DeliveryStatus] = DeliveryStatus.ASSIGNED
+    pickup_code: Optional[str] = None
+    otp_code: Optional[str] = None
+    timestamp_logs: Optional[Dict[str, Any]] = None
+    challan_url: Optional[str] = None
+    signature_url: Optional[str] = None
+    delivery_photo_url: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    invoice_number: Optional[str] = None
+    order_reference: Optional[str] = None
+
+class DeliveryTaskRead(DeliveryTaskBase):
+    id: Any
+    created_at: Optional[datetime] = None
+    driver: Optional[UserRead] = None
+
+class DeliveryTaskUpdate(ORMBase):
+    status: Optional[str] = None
+    driver_id: Optional[int] = None
+# 7. Admin & Dashboard
+class DashboardStats(BaseModel):
+    total_revenue: float
+    pending_invoices_count: int
+    active_delivery_tasks_count: int
+    low_stock_products_count: int
+    monthly_sales: List[Dict[str, Any]] # For charts
+
+class ActivityLogRead(ORMBase):
+    id: int
+    action: str
+    category: Optional[str] = None
+    user_id: Optional[int] = None
+    created_at: datetime
+    user: Optional[UserRead] = None

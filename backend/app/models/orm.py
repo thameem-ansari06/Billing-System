@@ -1,7 +1,55 @@
-from sqlalchemy import Column, Integer, String, Float, Text, ForeignKey, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, Float, Text, ForeignKey, DateTime, Boolean, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from sqlalchemy.dialects.postgresql import JSONB
 from app.database.db import Base
+import enum
+
+from .enums import UserRole, OrderStatus, DeliveryStatus
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    role = Column(Enum(UserRole), default=UserRole.user)
+    full_name = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    address_line = Column(String, nullable=True)
+    city = Column(String, nullable=True)
+    state = Column(String, nullable=True)
+    pincode = Column(String, nullable=True)
+    gstin = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    status = Column(Enum(OrderStatus), default=OrderStatus.Placed)
+    total_amount = Column(Float, default=0.0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User")
+    order_items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+    invoices = relationship("Invoice", back_populates="order")
+    quotes = relationship("Quote", back_populates="order")
+    challans = relationship("DeliveryChallan", back_populates="order")
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"))
+    product_id = Column(Integer, ForeignKey("products.id"))
+    quantity = Column(Integer, default=1)
+    price_at_order = Column(Float, nullable=False)
+
+    order = relationship("Order", back_populates="order_items")
+    product = relationship("Product")
 
 class Customer(Base):
     __tablename__ = "customers"
@@ -74,6 +122,10 @@ class Product(Base):
     product_id = Column(String, unique=True, index=True)
     name = Column(String, nullable=False)
     price = Column(Float, nullable=False)
+    description = Column(Text, nullable=True)
+    image_url = Column(String, nullable=True)
+    gst_percentage = Column(Float, default=18.0)
+    stock_quantity = Column(Integer, default=0)
 
 class Invoice(Base):
     __tablename__ = "invoices"
@@ -100,10 +152,17 @@ class Invoice(Base):
     terms_conditions = Column(Text)
     salesperson = Column(String)
     tds_amount = Column(Float, default=0.0)
+    rejection_reason = Column(Text, nullable=True) # Added for workflow
+    challan_url = Column(String, nullable=True) # Added for customer access
     related_challan_id = Column(Integer, ForeignKey("delivery_challans.id"), nullable=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    order = relationship("Order", back_populates="invoices")
+    user = relationship("User")
     items = relationship("InvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
+    delivery_tasks = relationship("DeliveryTask", back_populates="invoice")
 
 class InvoiceItem(Base):
     __tablename__ = "invoice_items"
@@ -120,11 +179,45 @@ class InvoiceItem(Base):
 
     invoice = relationship("Invoice", back_populates="items")
 
+class DeliveryTask(Base):
+    __tablename__ = "delivery_tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_id = Column(Integer, ForeignKey("invoices.id"))
+    driver_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    customer_name = Column(String)
+    customer_address = Column(String)
+    contact_number = Column(String)
+    status = Column(Enum(DeliveryStatus), default=DeliveryStatus.ASSIGNED)
+    pickup_code = Column(String, nullable=True) # Set for warehouse verification
+    otp_code = Column(String, nullable=True)
+    invoice_number = Column(String, nullable=True) # Unified Tracking ID
+    order_reference = Column(String, nullable=True) # Human-readable Order Reference
+    timestamp_logs = Column(JSONB, nullable=True) # JSONB for efficient PostgreSQL storage
+    challan_url = Column(String, nullable=True) 
+    signature_url = Column(String, nullable=True)
+    delivery_photo_url = Column(String, nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    invoice = relationship("Invoice", back_populates="delivery_tasks")
+    driver = relationship("User", foreign_keys=[driver_id])
+
+    @property
+    def sync_invoice_number(self):
+        return self.invoice_number or (self.invoice.invoice_number if self.invoice else None)
+    
+    @property
+    def sync_order_reference(self):
+        return self.order_reference or (str(self.invoice.order_id) if self.invoice and self.invoice.order_id else None)
+
 class Quote(Base):
     __tablename__ = "quotes"
 
     id = Column(Integer, primary_key=True, index=True)
     quote_number = Column(String, unique=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Added for user sync
     customer_name = Column(String)
     place_of_supply = Column(String)
     reference_number = Column(String)
@@ -135,9 +228,12 @@ class Quote(Base):
     sgst = Column(Float)
     igst = Column(Float)
     grand_total = Column(Float)
-    status = Column(String, default="Draft")
+    status = Column(String, default="pending_approval") # Updated default
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    order = relationship("Order", back_populates="quotes")
+    user = relationship("User") # Added relationship
     items = relationship("QuoteItem", back_populates="quote", cascade="all, delete-orphan")
 
 class QuoteItem(Base):
@@ -180,8 +276,10 @@ class DeliveryChallan(Base):
     transporter_name = Column(String)
     waybill_number = Column(String)
     dispatch_datetime = Column(DateTime, server_default=func.now())
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    order = relationship("Order", back_populates="challans")
     items = relationship("ChallanItem", back_populates="challan", cascade="all, delete-orphan")
 
 
@@ -197,3 +295,14 @@ class ChallanItem(Base):
     amount = Column(Float)
 
     challan = relationship("DeliveryChallan", back_populates="items")
+
+class ActivityLog(Base):
+    __tablename__ = "activity_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    action = Column(String, nullable=False) # e.g. "Customer Accepted Invoice #INV-101"
+    category = Column(String, nullable=True) # e.g. "Logistics", "Finance", "Inventory"
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User")

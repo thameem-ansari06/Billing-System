@@ -4,48 +4,234 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List
 import os
+from datetime import datetime
 from app.database.db import get_db, get_next_id
-from app.models.orm import Invoice, InvoiceItem
+from app.models.orm import Invoice, InvoiceItem, DeliveryTask, ActivityLog
 from app.models.schemas import InvoiceCreate, InvoiceRead
 from app.utils.invoice_maker import generate_pdf_invoice
 # from app.utils.email_bot import send_invoice_mail # Commented out as in original
 
 from app.utils.calculations import calculate_gst_totals
+from app.utils.auth import get_current_active_user
+from app.models.orm import User
 
-router = APIRouter(prefix="/api", tags=["Invoices"])
+router = APIRouter(prefix="/api/invoices", tags=["Invoices"])
 
-@router.get("/invoices/next-number")
+@router.get("/next-number")
 def get_next_invoice_number():
     return {"next_number": get_next_id("INV", "invoices", "invoice_number")}
 
-@router.get("/invoices/")
-def get_all_invoices(db: Session = Depends(get_db)):
-    invoices = db.query(Invoice).order_by(Invoice.id.desc()).all()
-    return {"invoices": invoices}
+@router.get("/")
+def get_all_invoices(db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
+    from sqlalchemy.orm import joinedload
+    if current_user.role in ["admin", "ceo", "accounts"]:
+        invoices = db.query(Invoice).options(joinedload(Invoice.items)).order_by(Invoice.id.desc()).all()
+    else:
+        invoices = db.query(Invoice).options(joinedload(Invoice.items)).filter(Invoice.user_id == current_user.id).order_by(Invoice.id.desc()).all()
+    
+    # Serialize explicitly so order_id is always present in the JSON
+    result = []
+    for inv in invoices:
+        result.append({
+            "id": inv.id,
+            "invoice_number": inv.invoice_number,
+            "customer_name": inv.customer_name,
+            "place_of_supply": inv.place_of_supply,
+            "reference_number": inv.reference_number,
+            "invoice_date": inv.invoice_date,
+            "due_date": inv.due_date,
+            "subtotal": inv.subtotal,
+            "cgst": inv.cgst,
+            "sgst": inv.sgst,
+            "igst": inv.igst,
+            "grand_total": inv.grand_total,
+            "amount_paid": inv.amount_paid,
+            "email": inv.email,
+            "status": inv.status,
+            "order_id": inv.order_id,
+            "user_id": inv.user_id,
+            "created_at": inv.created_at.isoformat() if inv.created_at else None,
+            "is_auto_generated": inv.order_id is not None
+        })
+    return {"invoices": result}
 
 @router.get("/invoices/{invoice_number:path}", response_model=InvoiceRead)
-def get_invoice_by_number(invoice_number: str, db: Session = Depends(get_db)):
-    invoice = db.query(Invoice).filter(Invoice.invoice_number == invoice_number).first()
+def get_invoice_by_number(invoice_number: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
+    if current_user.role in ["admin", "ceo", "accounts"]:
+        invoice = db.query(Invoice).filter(Invoice.invoice_number == invoice_number).first()
+    else:
+        invoice = db.query(Invoice).filter(Invoice.invoice_number == invoice_number, Invoice.user_id == current_user.id).first()
+        
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
     return invoice
 
-@router.get("/{invoice_id}/pdf")
-def get_invoice_pdf(invoice_id: str):
-    # 1. Database-la irukra ID-la slashes-ah underscores-ah mathunga
-    # Example: 'INV/2026/001' -> 'INV_2026_001.pdf'
-    safe_filename = invoice_id.replace("/", "_") + ".pdf"
-    file_path = f"data/invoices/{safe_filename}"
+@router.post("/generate/{invoice_id:path}/")
+def generate_invoice_pdf(
+    invoice_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Triggers PDF generation if missing, and returns a static JSON URL.
+    Migrated from dynamic streaming to Save-to-Disk model.
+    """
+    if current_user.role not in ["admin", "ceo", "sales"]:
+        raise HTTPException(status_code=403, detail="Unauthorized")
 
-    # 2. File irukkaa nu check pannunga
+    # 1. Fetch Invoice Data from DB
+    db_invoice = db.query(Invoice).filter(Invoice.invoice_number == invoice_id).first()
+    if not db_invoice:
+        raise HTTPException(status_code=404, detail="Invoice record not found in database")
+
+    # 2. Path & Filename logic (matching invoice_maker.py)
+    safe_filename = invoice_id.replace("/", "_").replace("\\", "_") + ".pdf"
+    file_path = os.path.join("static", "invoices", safe_filename)
+    file_url = f"/static/invoices/{safe_filename}"
+
+    # 3. Check if file exists, if not generate it
     if not os.path.exists(file_path):
-        print(f"❌ File not found at: {file_path}") # Debugging-ku ithu help aagum
-        raise HTTPException(status_code=404, detail="Invoice PDF not found on server")
+        from app.utils.calculations import calculate_gst_totals
+        from app.utils.invoice_maker import generate_pdf_invoice
+        
+        items_list = [{
+            "Item Name": item.item_details,
+            "Quantity": item.quantity,
+            "Price": item.rate,
+            "Amount": item.amount
+        } for item in db_invoice.items]
 
-    return FileResponse(file_path, media_type='application/pdf', filename=safe_filename)
+        # Re-calc totals for PDF consistency
+        items_dicts = [{"amount": item.amount, "tax_type": item.tax_type} for item in db_invoice.items]
+        calc = calculate_gst_totals(items_dicts, db_invoice.place_of_supply, db_invoice.adjustment or 0)
 
-@router.post("/invoices/", response_model=InvoiceRead)
-def create_invoice(invoice_data: InvoiceCreate, db: Session = Depends(get_db)):
+        generate_pdf_invoice(
+            invoice_id=db_invoice.invoice_number,
+            customer_email=db_invoice.email or "customer@example.com",
+            items_list=items_list,
+            tax_data=calc,
+            terms=db_invoice.terms_conditions
+        )
+
+    # 4. Return JSON URL instead of FileResponse
+    return {"file_url": file_url}
+
+@router.put("/{invoice_id}/send/")
+def send_invoice(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Admin marks invoice as Sent to the customer."""
+    if current_user.role not in ["admin", "ceo", "sales"]:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+        
+    invoice.status = "Sent"
+    
+    # Log Activity
+    db.add(ActivityLog(
+        action=f"Admin sent Invoice #{invoice.invoice_number}",
+        category="Finance",
+        user_id=current_user.id
+    ))
+    
+    db.commit()
+    return {"message": "Invoice marked as Sent", "status": "Sent"}
+
+@router.put("/customer/{invoice_id}/decision/")
+def customer_invoice_decision(
+    invoice_id: int,
+    decision: str, # ACCEPTED or REJECTED
+    reason: str = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Customer accepts or rejects the invoice. Triggers auto-delivery on Accept."""
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+        
+    # Security: Only owner or admin
+    if current_user.role != "admin" and invoice.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    if decision.upper() == "ACCEPTED":
+        invoice.status = "Accepted"
+        
+        # 🚚 AUTO-DELIVERY HANDSHAKE & CHALLAN GENERATION
+        # Fetch customer's full profile for logistics
+        customer = db.query(User).filter(User.id == invoice.user_id).first()
+        full_address = f"{customer.address_line}, {customer.city}, {customer.state} - {customer.pincode}" if (customer and customer.address_line) else invoice.place_of_supply
+        
+        # Pull contact from User profile or fallback to a placeholder
+        contact_phone = customer.phone if (customer and customer.phone) else "Not Provided"
+
+        # Prepare items for challan PDF
+        items_for_challan = [{"Item Name": item.item_details, "Quantity": item.quantity} for item in invoice.items]
+
+        # Generate Challan PDF
+        from app.utils.challan_maker import generate_delivery_challan
+        challan_url = generate_delivery_challan(
+            invoice_id=invoice.invoice_number,
+            customer_name=invoice.customer_name,
+            customer_address=full_address,
+            contact_number=contact_phone,
+            items_list=items_for_challan
+        )
+
+        invoice.challan_url = challan_url
+
+        new_task = DeliveryTask(
+            invoice_id=invoice.id,
+            invoice_number=invoice.invoice_number,
+            order_reference=str(invoice.order_id) if invoice.order_id else invoice.reference_number,
+            customer_name=invoice.customer_name,
+            customer_address=full_address,
+            contact_number=contact_phone,
+            challan_url=challan_url,
+            status="Pending Delivery"
+        )
+        db.add(new_task)
+        
+    elif decision.upper() == "REJECTED":
+        if not reason:
+            raise HTTPException(status_code=400, detail="Rejection reason mandatory")
+        invoice.status = "Rejected"
+        invoice.rejection_reason = reason
+    # Log Activity
+    db.add(ActivityLog(
+        action=f"Customer {decision.capitalize()} Invoice #{invoice.invoice_number}",
+        category="Logistics" if decision.upper() == "ACCEPTED" else "Finance",
+        user_id=current_user.id
+    ))
+
+    db.commit()
+    return {"message": f"Invoice {decision.lower()} successfully", "status": invoice.status}
+
+@router.get("/customer/")
+def get_customer_specific_invoices(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Retrieve only Sent, Accepted, or Rejected invoices for the current customer."""
+    from sqlalchemy.orm import joinedload
+    invoices = db.query(Invoice)\
+        .options(joinedload(Invoice.items))\
+        .filter(Invoice.user_id == current_user.id)\
+        .filter(Invoice.status.in_(["Sent", "Accepted", "Rejected", "Paid"]))\
+        .order_by(Invoice.id.desc())\
+        .all()
+    return {"invoices": invoices}
+
+@router.post("/", response_model=InvoiceRead)
+def create_invoice(invoice_data: InvoiceCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
+    if current_user.role not in ["admin", "ceo", "sales"]:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
     # Fetch a fresh number at save time to ensure no race conditions
     gn_invoice_id = get_next_id("INV", "invoices", "invoice_number")
     
@@ -57,6 +243,7 @@ def create_invoice(invoice_data: InvoiceCreate, db: Session = Depends(get_db)):
     try:
         db_invoice = Invoice(
             invoice_number=gn_invoice_id,
+            user_id=invoice_data.user_id or current_user.id,
             subtotal=calc["subtotal"],
             cgst=calc["cgst"],
             sgst=calc["sgst"],

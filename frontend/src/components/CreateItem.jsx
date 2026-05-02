@@ -20,20 +20,21 @@ export default function CreateItem() {
     intra_state_tax: 'GST12 (12 %)',
     inter_state_tax: 'IGST12 (12 %)'
   });
+  const [imageFile, setImageFile] = useState(null);
 
   const updateField = (field, value) => setFormData({ ...formData, [field]: value });
 
   const handleSaveItem = async () => {
     try {
-      const payload = {
-        name: formData.name,
-        price: parseFloat(formData.selling_price) || 0
-      };
+      const data = new FormData();
+      data.append('name', formData.name);
+      data.append('price', parseFloat(formData.selling_price) || 0);
+      if (formData.description) data.append('description', formData.description);
+      if (imageFile) data.append('image', imageFile);
 
       const response = await fetch('http://localhost:8000/api/products/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: data
       });
       if (response.ok) {
         navigate('/inventory');
@@ -134,6 +135,35 @@ export default function CreateItem() {
               />
             </div>
           </div>
+
+          <hr className="border-slate-100" />
+          
+          {/* Description & Asset */}
+          <div className="grid grid-cols-12 gap-6 items-start">
+            <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-500 pt-2">Product Description</Label>
+            <div className="col-span-12 md:col-span-7">
+              <Textarea 
+                className="border-slate-200 focus-visible:ring-1 focus-visible:ring-blue-400 min-h-[100px]" 
+                placeholder="Ex. 1-year premium sub..."
+                value={formData.description}
+                onChange={(e) => updateField('description', e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-12 gap-6 items-center">
+            <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-500">Marketing Image</Label>
+            <div className="col-span-12 md:col-span-7">
+               <Input 
+                 type="file" 
+                 accept="image/*"
+                 onChange={(e) => setImageFile(e.target.files[0])}
+                 className="p-0 border-slate-200 file:border-0 file:bg-slate-100 file:mr-4 file:py-2 file:px-4 cursor-pointer hover:file:bg-slate-200 transition-colors"
+               />
+            </div>
+          </div>
+
+          <hr className="border-slate-100" />
 
           {/* Tax Rates (The section that caused the error) */}
           <div className="pt-6 space-y-5 border-t border-slate-50">

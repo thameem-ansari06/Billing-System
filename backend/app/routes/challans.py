@@ -7,6 +7,9 @@ from app.models.orm import DeliveryChallan, ChallanItem
 from app.models.schemas import DeliveryChallanCreate, DeliveryChallanRead
 from app.utils.calculations import calculate_gst_totals
 
+from app.utils.auth import get_current_active_user
+from app.models.orm import User
+
 router = APIRouter(prefix="/api/delivery-challans", tags=["Delivery Challans"])
 
 @router.get("/next-number")
@@ -14,12 +17,12 @@ def get_next_challan_number():
     return {"next_number": get_next_id("DC", "delivery_challans", "challan_number")}
 
 @router.get("/")
-def get_all_challans(db: Session = Depends(get_db)):
+def get_all_challans(db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
     challans = db.query(DeliveryChallan).all()
     return {"delivery_challans": challans}
 
 @router.post("/", response_model=DeliveryChallanRead)
-def create_challan(challan_data: DeliveryChallanCreate, db: Session = Depends(get_db)):
+def create_challan(challan_data: DeliveryChallanCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
     # Fetch a fresh number at save time to ensure no race conditions
     gn_challan_id = get_next_id("DC", "delivery_challans", "challan_number")
     
@@ -84,7 +87,13 @@ def create_challan(challan_data: DeliveryChallanCreate, db: Session = Depends(ge
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/pdf-view/{challan_number:path}")
-def get_challan_pdf(challan_number: str, db: Session = Depends(get_db)):
+def get_challan_pdf(
+    challan_number: str, 
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_active_user)
+):
+    if current_user.role not in ["admin", "ceo", "sales"]:
+        raise HTTPException(status_code=403, detail="Unauthorized")
     challan = db.query(DeliveryChallan).filter(DeliveryChallan.challan_number == challan_number).first()
     if not challan:
         raise HTTPException(status_code=404, detail="Challan not found")
@@ -103,25 +112,27 @@ def get_challan_pdf(challan_number: str, db: Session = Depends(get_db)):
     from app.utils.calculations import calculate_gst_totals
     calc = calculate_gst_totals(items_dicts, challan.place_of_supply, challan.adjustment or 0)
 
-    pdf_path, _ = generate_pdf_invoice(
-        invoice_id=challan_number,
-        customer_email=challan.customer_name,
-        items_list=items_list,
-        tax_data=calc,
-        terms=challan.terms,
-        logistics_data={
-            "vehicle_number": challan.vehicle_number,
-            "driver_name": challan.driver_name,
-            "driver_mobile": challan.driver_mobile,
-            "transporter_name": challan.transporter_name,
-            "waybill_number": challan.waybill_number,
-        }
-    )
+    # Path & Filename logic (matching invoice_maker.py)
+    safe_filename = challan_number.replace("/", "_").replace("\\", "_") + ".pdf"
+    file_path = os.path.join("static", "invoices", safe_filename)
+    file_url = f"/static/invoices/{safe_filename}"
+
+    # Check if file exists, if not generate it
+    if not os.path.exists(file_path):
+        from app.utils.invoice_maker import generate_pdf_invoice
+        generate_pdf_invoice(
+            invoice_id=challan_number,
+            customer_email=challan.customer_name,
+            items_list=items_list,
+            tax_data=calc,
+            terms=challan.terms,
+            logistics_data={
+                "vehicle_number": challan.vehicle_number,
+                "driver_name": challan.driver_name,
+                "driver_mobile": challan.driver_mobile,
+                "transporter_name": challan.transporter_name,
+                "waybill_number": challan.waybill_number,
+            }
+        )
     
-    import os
-    from fastapi.responses import FileResponse
-    if os.path.exists(pdf_path):
-        down_name = challan_number.replace("/", "-").replace("\\", "-")
-        return FileResponse(pdf_path, media_type='application/pdf', filename=f"{down_name}.pdf")
-    else:
-        raise HTTPException(status_code=500, detail="PDF generation failed")
+    return {"file_url": file_url}

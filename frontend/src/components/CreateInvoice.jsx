@@ -1,21 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, ExternalLink, PlusCircle, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+
+import { useAuth } from '../context/AuthContext';
 
 export default function CreateInvoice() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Base state
   const [formData, setFormData] = useState({
+    user_id: '',
+    order_id: null,
     customer_name: '',
     place_of_supply: 'Tamil Nadu',
-    invoice_number: 'INV-', 
+    invoice_number: 'INV-' + Math.floor(1000 + Math.random() * 9000), 
     reference_number: '',
     invoice_date: new Date().toISOString().split('T')[0],
     due_date: new Date().toISOString().split('T')[0],
@@ -28,23 +37,67 @@ export default function CreateInvoice() {
   ]);
 
   useEffect(() => {
-    // Fetch Customers
-    fetch('http://localhost:8000/api/customers')
-      .then(res => res.json())
-      .then(data => setCustomers(data.customers || []));
-    
-    // Fetch Products
-    fetch('http://localhost:8000/api/products')
-      .then(res => res.json())
-      .then(data => setProducts(data.products || []));
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const headers = { 'Authorization': `Bearer ${user.token}` };
+        
+        // Fetch Active Portal Users
+        const custRes = await fetch('http://localhost:8000/api/admin/customers/active', { headers });
+        if (custRes.status === 401) throw new Error("Unauthorized");
+        const custData = await custRes.json();
+        setCustomers(Array.isArray(custData) ? custData : []);
+        
+        // Fetch Products
+        const prodRes = await fetch('http://localhost:8000/api/products', { headers });
+        const prodData = await prodRes.json();
+        setProducts(prodData.products || []);
 
-    // Fetch Next Invoice Number
-    fetch('http://localhost:8000/api/invoices/next-number')
-      .then(res => res.json())
-      .then(data => {
-         if (data.next_number) handleBaseChange('invoice_number', data.next_number);
-      });
-  }, []);
+        // Fetch Next Invoice Number
+        const invRes = await fetch('http://localhost:8000/api/invoices/next-number', { headers });
+        const invData = await invRes.json();
+        if (invData.next_number) handleBaseChange('invoice_number', invData.next_number);
+
+      } catch (err) {
+        console.error("Fetch Error:", err);
+        setError(err.message === "Unauthorized" ? "Session expired. Please login again." : "Failed to load data.");
+        if (err.message === "Unauthorized") {
+          toast.error("Session expired. Redirecting...");
+          setTimeout(() => navigate('/login'), 2000);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user?.token) fetchData();
+
+    // Handle Incoming Order Data
+    if (location.state?.order) {
+      const order = location.state.order;
+      setFormData(prev => ({
+        ...prev,
+        user_id: order.user_id,
+        customer_name: order.user?.full_name || order.user?.username,
+        reference_number: `ORD-${order.id}`,
+        email: order.user?.email || ''
+      }));
+      if (order.order_items) {
+         const newItems = order.order_items.map((oi, idx) => ({
+            id: idx,
+            item_details: oi.product?.name || 'Product',
+            quantity: oi.quantity,
+            rate: oi.price_at_order,
+            discount_amount: 0,
+            discount_type: 'amount',
+            tax_type: 'GST18',
+            amount: oi.quantity * oi.price_at_order
+         }));
+         setItems(newItems);
+      }
+    }
+  }, [location.state, user]);
 
   const formatAddress = (c) => {
     return [
@@ -134,16 +187,35 @@ export default function CreateInvoice() {
 
   const handleSave = async (status = "Draft") => {
     try {
+      // Clean and Validate Items
+      const cleanedItems = items.map(item => ({
+        item_details: item.item_details,
+        quantity: parseFloat(item.quantity) || 0,
+        rate: parseFloat(item.rate) || 0,
+        discount_amount: parseFloat(item.discount_amount) || 0,
+        discount_type: item.discount_type,
+        tax_type: item.tax_type,
+        amount: parseFloat(item.amount) || 0
+      }));
+
       const payload = {
         ...formData,
         ...totals,
         status,
-        items: items
+        items: cleanedItems,
+        // Ensure IDs are integers or null
+        user_id: formData.user_id ? parseInt(formData.user_id) : null,
+        order_id: formData.order_id ? parseInt(formData.order_id) : null
       };
+
+      console.log("Saving Invoice Payload:", payload);
 
       const response = await fetch('http://localhost:8000/api/invoices/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        },
         body: JSON.stringify(payload)
       });
       if (response.ok) {
@@ -168,6 +240,11 @@ export default function CreateInvoice() {
             <ChevronLeft size={24} />
           </button>
           <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-slate-800">New Invoice</h1>
+          {formData.order_id && (
+            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100 font-bold px-3 py-1 animate-pulse">
+              Generated from Order #{formData.order_id}
+            </Badge>
+          )}
           <button className="text-blue-600 text-sm font-semibold ml-4 hover:underline flex items-center gap-2">
             Fetch Details From GSTN <ExternalLink size={16} />
           </button>
@@ -182,20 +259,29 @@ export default function CreateInvoice() {
           <div className="grid grid-cols-12 gap-6 items-center">
             <Label className="col-span-12 md:col-span-3 text-sm font-bold text-[#ef4444]">Customer Name *</Label>
             <div className="col-span-12 md:col-span-6">
-              <Select onValueChange={(v) => {
-                handleBaseChange('customer_name', v);
-                const selectedCust = customers.find(c => (c.display_name || c.first_name) === v);
-                if (selectedCust) {
-                    handleBaseChange('place_of_supply', selectedCust.place_of_supply || 'Tamil Nadu');
-                    handleBaseChange('email', selectedCust.email || '');
-                }
-              }}>
+              <Select 
+                value={formData.user_id?.toString()}
+                onValueChange={(v) => {
+                  const selectedCust = customers.find(c => c.id.toString() === v);
+                  if (selectedCust) {
+                    setFormData({
+                      ...formData,
+                      user_id: selectedCust.id,
+                      customer_name: selectedCust.full_name || selectedCust.email,
+                      email: selectedCust.email || '',
+                    });
+                  }
+                }}
+              >
                 <SelectTrigger className="h-11 border-slate-200 focus:ring-1 focus:ring-blue-400">
                   <SelectValue placeholder="Select a Customer" />
                 </SelectTrigger>
                 <SelectContent>
-                  {customers.map((c, i) => (
-                    <SelectItem key={i} value={c.display_name || c.first_name}>{c.display_name || `${c.first_name} ${c.last_name}`}</SelectItem>
+                  {error && <div className="p-2 text-xs text-red-500 font-bold">{error}</div>}
+                  {Array.isArray(customers) && customers.map((c) => (
+                    <SelectItem key={c.id} value={c.id.toString()}>
+                      {c.full_name || 'Unnamed User'} ({c.email})
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

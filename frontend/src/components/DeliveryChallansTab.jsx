@@ -4,16 +4,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { RefreshCw, Download } from 'lucide-react';
 
 export default function DeliveryChallansTab() {
   const [challans, setChallans] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [isDownloading, setIsDownloading] = useState(null);
 
   const fetchChallans = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/delivery-challans');
+      const res = await fetch('http://localhost:8000/api/delivery-challans', {
+        headers: { 'Authorization': `Bearer ${user?.token}` }
+      });
       const data = await res.json();
       setChallans(data.delivery_challans || []);
     } catch (err) {
@@ -34,10 +40,35 @@ export default function DeliveryChallansTab() {
     }
   };
 
-  const handleChallanClick = (e, num) => {
+  const handleChallanClick = async (e, num) => {
     e.preventDefault();
     e.stopPropagation();
-    window.open(`http://localhost:8000/api/delivery-challans/pdf-view/${num}`, '_blank');
+    
+    if (!user?.token) {
+      alert("You must be logged in to download challans.");
+      return;
+    }
+
+    setIsDownloading(num);
+    try {
+      const res = await fetch(`http://localhost:8000/api/delivery-challans/pdf-view/${encodeURIComponent(num)}`, {
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
+      
+      if (!res.ok) throw new Error("Download failed");
+      
+      const data = await res.json();
+      if (data.file_url) {
+        window.open(`http://localhost:8000${data.file_url}`, '_blank');
+      } else {
+        throw new Error("No file URL received");
+      }
+    } catch (err) {
+      console.error("❌ PDF Download Error:", err);
+      alert("Error downloading challan PDF.");
+    } finally {
+      setIsDownloading(null);
+    }
   };
 
   return (
@@ -95,7 +126,7 @@ export default function DeliveryChallansTab() {
                       onClick={(e) => handleChallanClick(e, c.challan_number)}
                       className="inline-flex items-center gap-1 font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 cursor-pointer min-h-[44px] px-2 rounded-md transition-colors"
                     >
-                      {c.challan_number} <Eye size={18} className="ml-1" />
+                      {c.challan_number} {isDownloading === c.challan_number ? <RefreshCw size={14} className="ml-1 animate-spin" /> : <Eye size={18} className="ml-1" />}
                     </a>
                   </td>
                   <td className="p-4 text-sm text-slate-500">{c.reference_number || '-'}</td>
