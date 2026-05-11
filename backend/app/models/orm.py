@@ -5,7 +5,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from app.database.db import Base
 import enum
 
-from .enums import UserRole, OrderStatus, DeliveryStatus
+from .enums import UserRole, OrderStatus, DeliveryStatus, PaymentMethod, PaymentStatus
 
 class User(Base):
     __tablename__ = "users"
@@ -22,7 +22,18 @@ class User(Base):
     state = Column(String, nullable=True)
     pincode = Column(String, nullable=True)
     gstin = Column(String, nullable=True)
+    
+    # New Fields for Conditional Signup
+    account_type = Column(String, nullable=True) # individual or enterprise
+    company_name = Column(String, nullable=True)
+    gst_no = Column(String, nullable=True)
+    pan_no = Column(String, nullable=True)
+    business_address = Column(String, nullable=True)
+    document_url = Column(String, nullable=True)
+    wallet_balance = Column(Float, default=0.0)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    payments = relationship("Payment", back_populates="customer")
 
 class Order(Base):
     __tablename__ = "orders"
@@ -31,6 +42,7 @@ class Order(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     status = Column(Enum(OrderStatus), default=OrderStatus.Placed)
     total_amount = Column(Float, default=0.0)
+    origin = Column(String, default="standard") # Added for tracking Bulk (quote_derived) vs Standard orders
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User")
@@ -123,7 +135,8 @@ class Product(Base):
     name = Column(String, nullable=False)
     price = Column(Float, nullable=False)
     description = Column(Text, nullable=True)
-    image_url = Column(String, nullable=True)
+    image_url = Column(String, nullable=True) # Primary image
+    image_urls = Column(JSONB, default=[]) # All images list
     gst_percentage = Column(Float, default=18.0)
     stock_quantity = Column(Integer, default=0)
 
@@ -142,7 +155,14 @@ class Invoice(Base):
     sgst = Column(Float)
     igst = Column(Float)
     grand_total = Column(Float)
+    
+    # B2B Enterprise Fields
+    customer_company_name = Column(String, nullable=True)
+    customer_gst_no = Column(String, nullable=True)
+
     amount_paid = Column(Float, default=0.0)
+    settled_amount = Column(Float, default=0.0)
+    payment_status = Column(String, default="Unpaid") # Added for Partial Payment (Unpaid, Partially Paid, Paid)
     email = Column(String)
     status = Column(String, default="Draft")
     shipping_charges = Column(Float, default=0.0)
@@ -164,9 +184,22 @@ class Invoice(Base):
     items = relationship("InvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
     delivery_tasks = relationship("DeliveryTask", back_populates="invoice")
 
+class Advance(Base):
+    __tablename__ = "advances"
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, ForeignKey("users.id"))
+    amount = Column(Float, nullable=False)
+    payment_mode = Column(String, default="Cash")
+    date = Column(String, nullable=True) # Explicit date for accounting
+    is_adjusted = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    customer = relationship("User")
+
 class InvoiceItem(Base):
     __tablename__ = "invoice_items"
-
+    
     id = Column(Integer, primary_key=True, index=True)
     invoice_id = Column(Integer, ForeignKey("invoices.id"))
     item_details = Column(String)
@@ -189,8 +222,8 @@ class DeliveryTask(Base):
     customer_address = Column(String)
     contact_number = Column(String)
     status = Column(Enum(DeliveryStatus), default=DeliveryStatus.ASSIGNED)
-    pickup_code = Column(String, nullable=True) # Set for warehouse verification
-    otp_code = Column(String, nullable=True)
+    pickup_otp = Column(String(6), nullable=True)
+    delivery_otp = Column(String(6), nullable=True)
     invoice_number = Column(String, nullable=True) # Unified Tracking ID
     order_reference = Column(String, nullable=True) # Human-readable Order Reference
     timestamp_logs = Column(JSONB, nullable=True) # JSONB for efficient PostgreSQL storage
@@ -228,6 +261,9 @@ class Quote(Base):
     sgst = Column(Float)
     igst = Column(Float)
     grand_total = Column(Float)
+    customer_company_name = Column(String, nullable=True)
+    customer_gst_no = Column(String, nullable=True)
+    email = Column(String, nullable=True)
     status = Column(String, default="pending_approval") # Updated default
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -306,3 +342,26 @@ class ActivityLog(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User")
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    razorpay_order_id = Column(String, index=True, nullable=True) # Now optional
+    razorpay_payment_id = Column(String, index=True, nullable=True)
+    razorpay_signature = Column(String, nullable=True)
+    
+    amount = Column(Float, nullable=False)
+    invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=True)
+    invoice_number = Column(String, ForeignKey("invoices.invoice_number"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    
+    payment_method = Column(Enum(PaymentMethod), default=PaymentMethod.UPI)
+    status = Column(Enum(PaymentStatus), default=PaymentStatus.SUCCESS)
+    transaction_id = Column(String, nullable=True)
+    is_overpayment = Column(Boolean, default=False)
+    payment_date = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    invoice = relationship("Invoice", foreign_keys=[invoice_id])
+    customer = relationship("User", back_populates="payments")

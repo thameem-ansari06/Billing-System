@@ -20,9 +20,23 @@ export default function CreateItem() {
     intra_state_tax: 'GST12 (12 %)',
     inter_state_tax: 'IGST12 (12 %)'
   });
-  const [imageFile, setImageFile] = useState(null);
+  const [imageFiles, setImageFiles] = useState([]);
+  const [previews, setPreviews] = useState([]);
 
   const updateField = (field, value) => setFormData({ ...formData, [field]: value });
+
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    setImageFiles(prev => [...prev, ...files]);
+    
+    const newPreviews = files.map(file => URL.createObjectURL(file));
+    setPreviews(prev => [...prev, ...newPreviews]);
+  };
+
+  const removeImage = (index) => {
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviews(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleSaveItem = async () => {
     try {
@@ -30,7 +44,11 @@ export default function CreateItem() {
       data.append('name', formData.name);
       data.append('price', parseFloat(formData.selling_price) || 0);
       if (formData.description) data.append('description', formData.description);
-      if (imageFile) data.append('image', imageFile);
+      
+      // Append multiple images
+      imageFiles.forEach(file => {
+        data.append('images', file);
+      });
 
       const response = await fetch('http://localhost:8000/api/products/', {
         method: 'POST',
@@ -151,15 +169,33 @@ export default function CreateItem() {
             </div>
           </div>
 
-          <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-500">Marketing Image</Label>
-            <div className="col-span-12 md:col-span-7">
+          <div className="grid grid-cols-12 gap-6 items-start">
+            <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-500 pt-2">Marketing Images</Label>
+            <div className="col-span-12 md:col-span-7 space-y-4">
                <Input 
                  type="file" 
                  accept="image/*"
-                 onChange={(e) => setImageFile(e.target.files[0])}
+                 multiple
+                 onChange={handleFileChange}
                  className="p-0 border-slate-200 file:border-0 file:bg-slate-100 file:mr-4 file:py-2 file:px-4 cursor-pointer hover:file:bg-slate-200 transition-colors"
                />
+               
+               {/* Previews */}
+               {previews.length > 0 && (
+                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-4 pt-2">
+                    {previews.map((src, idx) => (
+                      <div key={idx} className="relative aspect-square rounded-lg border border-slate-200 overflow-hidden group">
+                        <img src={src} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
+                        <button 
+                          onClick={() => removeImage(idx)}
+                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                 </div>
+               )}
             </div>
           </div>
 

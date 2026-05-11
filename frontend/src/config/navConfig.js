@@ -193,6 +193,12 @@ export const navConfig = [
         icon: Users,
         allowedRoles: ["provider"],
       },
+      {
+        title: "Staff Management",
+        path: "/staff",
+        icon: User,
+        allowedRoles: ["admin", "ceo"],
+      },
 
       {
         title: "Reports",

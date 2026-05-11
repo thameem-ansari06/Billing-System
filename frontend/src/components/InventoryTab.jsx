@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import EditProductModal from './EditProductModal';
+import { BASE_URL } from '../config';
 
 export default function InventoryTab() {
   const [products, setProducts] = useState([]);
@@ -76,7 +77,7 @@ export default function InventoryTab() {
          quantity: item.quantity
       }));
       
-      const response = await fetch('http://localhost:8000/orders/', {
+      const response = await fetch('http://localhost:8000/api/orders/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -194,7 +195,7 @@ export default function InventoryTab() {
                   <div className="h-48 bg-slate-50 border-b border-slate-100 flex items-center justify-center relative overflow-hidden group">
                     {p.image_url ? (
                         <img 
-                            src={`http://localhost:8000/${p.image_url}`} 
+                            src={`${BASE_URL}/${p.image_url}`} 
                             alt={p.name} 
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />

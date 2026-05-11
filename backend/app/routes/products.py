@@ -7,49 +7,49 @@ from app.database.db import get_db, get_next_id
 from app.models.orm import Product
 from app.models.schemas import ProductRead
 
-router = APIRouter(prefix="/api/products", tags=["Products"])
+router = APIRouter(prefix="/products", tags=["Products"])
 
 @router.get("/")
 def get_all_products(db: Session = Depends(get_db)):
     products = db.query(Product).all()
     return {"products": products}
 
+import json
+
 @router.post("/", response_model=ProductRead)
 def create_product(
     name: str = Form(...),
     price: float = Form(...),
     description: Optional[str] = Form(None),
-    image: Optional[UploadFile] = File(None),
+    images: Optional[List[UploadFile]] = File(None),
     stock_quantity: int = Form(0),
     db: Session = Depends(get_db)
 ):
     prod_id = get_next_id("PROD", "products", "product_id")
-    image_url = None
+    image_urls = []
     
-    if image:
-        file_ext = image.filename.split('.')[-1]
-        
-        # Flatten the ID to prevent arbitrary nested folder issues from '/' characters
-        safe_prod_id = prod_id.replace('/', '-')
-        file_name = f"{safe_prod_id}.{file_ext}"
-        
-        file_location = f"static/uploads/{file_name}"
-        
-        # Ensure deep directories exist if someone attempts nested strings later
-        os.makedirs(os.path.dirname(file_location), exist_ok=True)
-        
-        with open(file_location, "wb+") as file_object:
-            shutil.copyfileobj(image.file, file_object)
-        
-        image_url = f"static/uploads/{file_name}"
-        
+    if images:
+        for idx, img in enumerate(images):
+            file_ext = img.filename.split('.')[-1]
+            safe_prod_id = prod_id.replace('/', '-')
+            file_name = f"{safe_prod_id}_{idx}.{file_ext}"
+            
+            file_location = f"static/uploads/PROD/2026/{file_name}"
+            os.makedirs(os.path.dirname(file_location), exist_ok=True)
+            
+            with open(file_location, "wb+") as file_object:
+                shutil.copyfileobj(img.file, file_object)
+            
+            image_urls.append(f"static/uploads/PROD/2026/{file_name}")
+            
     try:
         db_product = Product(
             product_id=prod_id,
             name=name,
             price=price,
             description=description,
-            image_url=image_url,
+            image_url=image_urls[0] if image_urls else None,
+            image_urls=image_urls,
             stock_quantity=stock_quantity
         )
         db.add(db_product)
@@ -60,7 +60,7 @@ def create_product(
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.put("/{product_id}", response_model=ProductRead)
+@router.put("/{product_id:path}", response_model=ProductRead)
 def update_product(
     product_id: str,
     name: Optional[str] = Form(None),
@@ -68,7 +68,8 @@ def update_product(
     description: Optional[str] = Form(None),
     gst_percentage: Optional[float] = Form(None),
     stock_quantity: Optional[int] = Form(None),
-    image: Optional[UploadFile] = File(None),
+    images: Optional[List[UploadFile]] = File(None),
+    remaining_images: Optional[str] = Form(None), # JSON list of existing URLs to keep
     db: Session = Depends(get_db)
 ):
     db_product = db.query(Product).filter(Product.product_id == product_id).first()
@@ -87,19 +88,35 @@ def update_product(
     if stock_quantity is not None:
         db_product.stock_quantity = stock_quantity
 
-    if image:
-        file_ext = image.filename.split('.')[-1]
-        safe_prod_id = product_id.replace('/', '-')
-        file_name = f"{safe_prod_id}.{file_ext}"
-        
-        # Save explicitly to static/uploads/PROD/2026/ as requested by user
-        file_location = f"static/uploads/PROD/2026/{file_name}"
-        os.makedirs(os.path.dirname(file_location), exist_ok=True)
-        
-        with open(file_location, "wb+") as file_object:
-            shutil.copyfileobj(image.file, file_object)
-        
-        db_product.image_url = f"static/uploads/PROD/2026/{file_name}"
+    current_urls = []
+    if remaining_images:
+        try:
+            current_urls = json.loads(remaining_images)
+        except:
+            current_urls = db_product.image_urls or []
+    else:
+        # If not provided, we might want to keep current ones or clear them?
+        # Usually, if 'images' is provided but not 'remaining_images', it means overwrite.
+        # But let's be safe and keep current if neither is provided.
+        current_urls = db_product.image_urls or []
+
+    if images:
+        for idx, img in enumerate(images):
+            file_ext = img.filename.split('.')[-1]
+            safe_prod_id = product_id.replace('/', '-')
+            import time
+            file_name = f"{safe_prod_id}_{int(time.time())}_{idx}.{file_ext}"
+            
+            file_location = f"static/uploads/PROD/2026/{file_name}"
+            os.makedirs(os.path.dirname(file_location), exist_ok=True)
+            
+            with open(file_location, "wb+") as file_object:
+                shutil.copyfileobj(img.file, file_object)
+            
+            current_urls.append(f"static/uploads/PROD/2026/{file_name}")
+
+    db_product.image_urls = current_urls
+    db_product.image_url = current_urls[0] if current_urls else None
 
     try:
         db.commit()
@@ -107,4 +124,4 @@ def update_product(
         return db_product
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))

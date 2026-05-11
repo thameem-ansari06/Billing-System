@@ -11,7 +11,7 @@ import { useCart } from '../../context/CartContext';
 import VerticalStepper from '../ui/VerticalStepper';
 import { Button } from '@/components/ui/button';
 
-const API = 'http://localhost:8000';
+import { API } from '../../config';
 const fmt = (n) => parseFloat(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
 const STATUS_BADGE = {
@@ -36,7 +36,7 @@ function OrderCard({ order }) {
     if (task || loadingTask) return;
     setLoadingTask(true);
     try {
-      const res = await axios.get(`${API}/api/delivery-tasks/by-order/${order.id}`, {
+      const res = await axios.get(`${API}/delivery-tasks/by-order/${order.id}`, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
       setTask(res.data);
@@ -69,7 +69,7 @@ function OrderCard({ order }) {
   const handleDownloadInvoice = async (e) => {
     e.stopPropagation();
     try {
-      const res = await axios.get(`${API}/api/invoices/${invoice.id}/pdf`, {
+      const res = await axios.get(`${API}/invoices/${invoice.id}/pdf`, {
         responseType: 'blob',
         headers: { Authorization: `Bearer ${user.token}` },
       });

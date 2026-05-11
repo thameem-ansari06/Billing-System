@@ -4,7 +4,7 @@ import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-const API = 'http://localhost:8000';
+import { API } from '../../config';
 const fmt = (n) => parseFloat(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
 export default function CustomerDashboard() {
@@ -70,6 +70,13 @@ export default function CustomerDashboard() {
       icon: <TrendingUp size={22} />,
       bg: 'bg-emerald-50',
       text: 'text-emerald-600',
+    },
+    {
+      label: 'Wallet Balance',
+      value: `₹${fmt(profile?.wallet_balance)}`,
+      icon: <LayoutDashboard size={22} />,
+      bg: 'bg-amber-50',
+      text: 'text-amber-600',
     },
   ];
 

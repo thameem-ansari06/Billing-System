@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { BASE_URL } from '../config';
 
 export default function EditProductModal({ isOpen, onClose, product, onSuccess }) {
   const [formData, setFormData] = useState({
@@ -12,7 +13,9 @@ export default function EditProductModal({ isOpen, onClose, product, onSuccess }
     description: '',
     gst_percentage: '18'
   });
-  const [imageFile, setImageFile] = useState(null);
+  const [imageFiles, setImageFiles] = useState([]);
+  const [previews, setPreviews] = useState([]);
+  const [existingImages, setExistingImages] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -23,12 +26,31 @@ export default function EditProductModal({ isOpen, onClose, product, onSuccess }
         description: product.description || '',
         gst_percentage: product.gst_percentage || '18'
       });
-      setImageFile(null); // Reset image explicitly when opening
+      setExistingImages(product.image_urls || []);
+      setImageFiles([]); 
+      setPreviews([]);
     }
   }, [product, isOpen]);
 
   const updateField = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    setImageFiles(prev => [...prev, ...files]);
+    
+    const newPreviews = files.map(file => URL.createObjectURL(file));
+    setPreviews(prev => [...prev, ...newPreviews]);
+  };
+
+  const removeNewImage = (index) => {
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeExistingImage = (url) => {
+    setExistingImages(prev => prev.filter(img => img !== url));
   };
 
   const handleUpdate = async () => {
@@ -40,7 +62,12 @@ export default function EditProductModal({ isOpen, onClose, product, onSuccess }
       if (formData.price) data.append('price', parseFloat(formData.price) || 0);
       if (formData.description) data.append('description', formData.description);
       if (formData.gst_percentage) data.append('gst_percentage', parseFloat(formData.gst_percentage) || 0);
-      if (imageFile) data.append('image', imageFile);
+      
+      // Append new images
+      imageFiles.forEach(file => data.append('images', file));
+      
+      // Send the list of remaining existing images
+      data.append('remaining_images', JSON.stringify(existingImages));
 
       const response = await fetch(`http://localhost:8000/api/products/${product.product_id}`, {
         method: 'PUT',
@@ -48,7 +75,7 @@ export default function EditProductModal({ isOpen, onClose, product, onSuccess }
       });
 
       if (response.ok) {
-        onSuccess(product.name);
+        onSuccess(formData.name);
         onClose();
       } else {
         const err = await response.json();
@@ -74,7 +101,7 @@ export default function EditProductModal({ isOpen, onClose, product, onSuccess }
           </button>
         </div>
         
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh] custom-scrollbar">
           <div className="space-y-4">
             <div>
               <Label className="text-sm font-semibold text-slate-700">Product Name</Label>
@@ -116,16 +143,49 @@ export default function EditProductModal({ isOpen, onClose, product, onSuccess }
             </div>
 
             <div>
-              <Label className="text-sm font-semibold text-slate-700 flex justify-between">
-                <span>Update Image (Optional)</span>
-                {product.image_url && <span className="text-xs text-indigo-500 font-bold">Has Image</span>}
-              </Label>
+              <Label className="text-sm font-semibold text-slate-700">Product Images</Label>
+              
+              {/* Existing Images */}
+              {existingImages.length > 0 && (
+                <div className="grid grid-cols-4 gap-2 mt-2 mb-4">
+                  {existingImages.map((url, idx) => (
+                    <div key={idx} className="relative aspect-square rounded-md overflow-hidden border border-slate-200 group">
+                      <img src={`${BASE_URL}/${url}`} alt="Product" className="w-full h-full object-cover" />
+                      <button 
+                        onClick={() => removeExistingImage(url)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* New Images Previews */}
+              {previews.length > 0 && (
+                <div className="grid grid-cols-4 gap-2 mb-4">
+                  {previews.map((src, idx) => (
+                    <div key={idx} className="relative aspect-square rounded-md overflow-hidden border border-indigo-200 group">
+                      <img src={src} alt="New" className="w-full h-full object-cover" />
+                      <button 
+                        onClick={() => removeNewImage(idx)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <Input 
                 type="file" 
                 accept="image/*"
-                onChange={(e) => setImageFile(e.target.files[0])}
+                multiple
+                onChange={handleFileChange}
                 className="mt-1 file:bg-slate-100 file:border-0 hover:file:bg-slate-200 transition-colors"
-                title="Leave blank to keep existing image"
+                title="Add more images"
               />
             </div>
           </div>

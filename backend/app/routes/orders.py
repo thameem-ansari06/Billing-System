@@ -12,13 +12,66 @@ router = APIRouter(prefix="/orders", tags=["Orders"])
 
 allow_strict_admin = RoleChecker([UserRole.admin, UserRole.ceo])
 
-@router.get("/admin", response_model=List[OrderRead])
+@router.get("/", response_model=List[OrderRead])
 def get_all_orders_admin(
     db: Session = Depends(get_db),
     admin_user: User = Depends(allow_strict_admin)
 ):
     """Admin specifically retrieves all global orders, including user relationship mapped in schemas"""
-    return db.query(Order).order_by(desc(Order.created_at)).all()
+    from sqlalchemy.orm import joinedload
+    orders = db.query(Order)\
+        .options(
+            joinedload(Order.user),
+            joinedload(Order.order_items).joinedload(OrderItem.product),
+            joinedload(Order.invoices),
+            joinedload(Order.quotes)
+        )\
+        .order_by(desc(Order.created_at))\
+        .all()
+    return orders
+
+@router.get("/all")
+def get_unified_orders_admin(
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(allow_strict_admin)
+):
+    """Enhanced endpoint returning unified data for Admin Dashboard"""
+    from sqlalchemy.orm import joinedload
+    orders = db.query(Order)\
+        .options(
+            joinedload(Order.user),
+            joinedload(Order.order_items).joinedload(OrderItem.product),
+            joinedload(Order.invoices),
+            joinedload(Order.quotes)
+        )\
+        .order_by(desc(Order.created_at))\
+        .all()
+    
+    result = []
+    for order in orders:
+        order_dict = {
+            "id": order.id,
+            "created_at": order.created_at.isoformat() if order.created_at else None,
+            "status": order.status.value if hasattr(order.status, "value") else str(order.status),
+            "total_amount": order.total_amount,
+            "origin": order.origin,
+            "order_type": "Bulk Order" if order.origin == "quote_derived" else "Standard Order",
+            "customer": {
+                "id": order.user.id if order.user else None,
+                "full_name": order.user.full_name if order.user else "Unknown",
+                "username": order.user.username if order.user else "Unknown",
+                "email": order.user.email if order.user else "",
+                "phone": order.user.phone if order.user else "",
+                "gstin": order.user.gstin if order.user else ""
+            },
+            "item_count": sum(item.quantity for item in order.order_items),
+            "has_quotes": len(order.quotes) > 0,
+            "has_invoices": len(order.invoices) > 0,
+            "quotes": [{"id": q.id, "quote_number": q.quote_number, "status": q.status} for q in order.quotes],
+            "invoices": [{"id": inv.id, "invoice_number": inv.invoice_number, "status": inv.status} for inv in order.invoices]
+        }
+        result.append(order_dict)
+    return result
 
 @router.get("/user/orders/", response_model=List[OrderRead])
 def get_my_orders(
@@ -105,6 +158,19 @@ def create_customer_order(
     if item_count > 5:
         routing_decision = "QUOTE"
         quote_number = get_next_id("QUOTE", "quotes", "quote_number")
+        
+        is_enterprise = current_user.account_type == 'enterprise'
+        subtotal = new_order.total_amount
+        
+        if is_enterprise:
+            cgst = round(subtotal * 0.09, 2)
+            sgst = round(subtotal * 0.09, 2)
+            igst = 0.0
+        else:
+            cgst = 0.0
+            sgst = 0.0
+            igst = round(subtotal * 0.18, 2)
+
         new_quote = Quote(
             quote_number=quote_number,
             order_id=new_order.id,
@@ -113,11 +179,14 @@ def create_customer_order(
             place_of_supply="Default",
             quote_date=datetime.now().strftime("%Y-%m-%d"),
             expiry_date=(datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d"),
-            subtotal=new_order.total_amount,
-            cgst=new_order.total_amount * 0.09,
-            sgst=new_order.total_amount * 0.09,
-            igst=0.0,
-            grand_total=new_order.total_amount * 1.18,
+            subtotal=subtotal,
+            cgst=cgst,
+            sgst=sgst,
+            igst=igst,
+            grand_total=round(subtotal + cgst + sgst + igst, 2),
+            customer_company_name=current_user.company_name,
+            customer_gst_no=current_user.gst_no,
+            email=current_user.email,
             status="pending_approval"
         )
         db.add(new_quote)
@@ -142,6 +211,20 @@ def create_customer_order(
     else:
         routing_decision = "INVOICE"
         invoice_number = get_next_id("INV", "invoices", "invoice_number")
+        
+        is_enterprise = current_user.account_type == 'enterprise'
+        subtotal = new_order.total_amount
+        
+        if is_enterprise:
+            cgst = round(subtotal * 0.09, 2)
+            sgst = round(subtotal * 0.09, 2)
+            igst = 0.0
+        else:
+            # Fallback to standard 18% IGST for non-enterprise standard orders
+            cgst = 0.0
+            sgst = 0.0
+            igst = round(subtotal * 0.18, 2)
+
         new_invoice = Invoice(
             invoice_number=invoice_number,
             order_id=new_order.id,
@@ -150,11 +233,14 @@ def create_customer_order(
             place_of_supply="Default",
             invoice_date=datetime.now().strftime("%Y-%m-%d"),
             due_date=(datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d"),
-            subtotal=new_order.total_amount,
-            cgst=new_order.total_amount * 0.09,
-            sgst=new_order.total_amount * 0.09,
-            igst=0.0,
-            grand_total=new_order.total_amount * 1.18,
+            subtotal=subtotal,
+            cgst=cgst,
+            sgst=sgst,
+            igst=igst,
+            grand_total=round(subtotal + cgst + sgst + igst, 2),
+            customer_company_name=current_user.company_name,
+            customer_gst_no=current_user.gst_no,
+            email=current_user.email,
             status="Draft"
         )
         db.add(new_invoice)
@@ -173,6 +259,10 @@ def create_customer_order(
                 amount=v_item["price_at_order"] * v_item["quantity"]
             )
             db.add(inv_item)
+
+        # 💰 AUTOMATION: Apply Customer Advances (Wallet Settlement)
+        from app.utils.wallet import settle_invoice_from_advances
+        settle_invoice_from_advances(db, new_invoice)
 
         new_order.status = OrderStatus.Invoiced
 
@@ -203,6 +293,107 @@ def get_order_by_id(
         raise HTTPException(status_code=403, detail="Not authorized to access this order")
         
     return order
+
+@router.get("/{order_id}/details")
+def get_order_details_admin(
+    order_id: int,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(allow_strict_admin)
+):
+    """Returns 'Mottha Details' for the OrderDetailModal"""
+    from sqlalchemy.orm import joinedload
+    order = db.query(Order)\
+        .options(
+            joinedload(Order.user),
+            joinedload(Order.order_items).joinedload(OrderItem.product),
+            joinedload(Order.invoices),
+            joinedload(Order.quotes)
+        )\
+        .filter(Order.id == order_id).first()
+        
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    items = []
+    for item in order.order_items:
+        items.append({
+            "id": item.id,
+            "product_name": item.product.name if item.product else "Unknown Product",
+            "sku": item.product.product_id if item.product else "N/A",
+            "quantity": item.quantity,
+            "rate": item.price_at_order,
+            "gst": item.product.gst_percentage if item.product else 0,
+            "amount": item.quantity * item.price_at_order
+        })
+
+    timeline = [
+        {"stage": "Ordered", "status": "completed", "date": order.created_at.isoformat() if order.created_at else None}
+    ]
+
+    # Dynamic Timeline based on Quotes and Invoices
+    if order.quotes:
+        q = order.quotes[0]
+        timeline.append({"stage": "Quoted", "status": "completed", "date": q.created_at.isoformat() if q.created_at else None})
+        if q.status.lower() == "approved":
+            timeline.append({"stage": "Approved", "status": "completed", "date": None})
+        else:
+            timeline.append({"stage": "Approval Pending", "status": "current", "date": None})
+    
+    if order.invoices:
+        inv = order.invoices[0]
+        timeline.append({"stage": "Invoiced", "status": "completed", "date": inv.created_at.isoformat() if inv.created_at else None})
+        if inv.status == "PENDING_ADMIN_SEND":
+            timeline.append({"stage": "Pending Send", "status": "current", "date": None})
+    
+    # Calculate Order-level Tax Summary (assuming 18% GST for simplicity if not per-product)
+    # Better: sum from items
+    subtotal = sum(item["amount"] for item in items)
+    cgst = sum(item["amount"] * (item["gst"]/200) for item in items)
+    sgst = sum(item["amount"] * (item["gst"]/200) for item in items)
+    igst = 0.0 # Logic can be added for inter-state
+
+    return {
+        "id": order.id,
+        "created_at": order.created_at.isoformat() if order.created_at else None,
+        "status": order.status.value if hasattr(order.status, "value") else str(order.status),
+        "total_amount": order.total_amount,
+        "order_type": "Bulk Order" if order.origin == "quote_derived" else "Standard Order",
+        "customer": {
+            "full_name": order.user.full_name if order.user else "Unknown",
+            "gstin": order.user.gstin if order.user else "N/A",
+            "phone": order.user.phone if order.user else "N/A",
+            "email": order.user.email if order.user else "N/A",
+            "address": f"{order.user.address_line}, {order.user.city}, {order.user.state} - {order.user.pincode}" if order.user and order.user.address_line else "No address provided"
+        },
+        "tax_summary": {
+            "subtotal": subtotal,
+            "cgst": cgst,
+            "sgst": sgst,
+            "igst": igst,
+            "grand_total": order.total_amount # Or subtotal + cgst + sgst + igst
+        },
+        "items": items,
+        "timeline": timeline,
+        "quotes": [
+            {
+                "id": q.id, 
+                "quote_number": q.quote_number, 
+                "status": q.status, 
+                "date": q.quote_date,
+                "total": q.grand_total
+            } for q in order.quotes
+        ],
+        "invoices": [
+            {
+                "id": inv.id, 
+                "invoice_number": inv.invoice_number, 
+                "status": inv.status,
+                "date": inv.invoice_date,
+                "total": inv.grand_total,
+                "paid": inv.amount_paid
+            } for inv in order.invoices
+        ]
+    }
 
 @router.post("/{order_id}/generate-quote")
 def generate_quote_from_order(
@@ -236,6 +427,9 @@ def generate_quote_from_order(
         sgst=order.total_amount * 0.09,
         igst=0.0,
         grand_total=order.total_amount * 1.18,
+        customer_company_name=user.company_name,
+        customer_gst_no=user.gst_no,
+        email=user.email,
         status="pending_approval"
     )
     db.add(new_quote)

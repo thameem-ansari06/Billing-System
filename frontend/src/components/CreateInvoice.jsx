@@ -171,11 +171,19 @@ export default function CreateInvoice() {
     });
 
     let cgst = 0, sgst = 0, igst = 0;
-    if (formData.place_of_supply === 'Tamil Nadu') {
+    
+    // B2B Smart Invoicing: Force 18% split if enterprise
+    const selectedCust = customers.find(c => c.id === formData.user_id);
+    if (selectedCust?.account_type === 'enterprise') {
       cgst = totalTaxAmount / 2;
       sgst = totalTaxAmount / 2;
     } else {
-      igst = totalTaxAmount;
+      if (formData.place_of_supply === 'Tamil Nadu') {
+        cgst = totalTaxAmount / 2;
+        sgst = totalTaxAmount / 2;
+      } else {
+        igst = totalTaxAmount;
+      }
     }
 
     const grand_total = subtotal + cgst + sgst + igst;
@@ -269,6 +277,9 @@ export default function CreateInvoice() {
                       user_id: selectedCust.id,
                       customer_name: selectedCust.full_name || selectedCust.email,
                       email: selectedCust.email || '',
+                      customer_company_name: selectedCust.company_name,
+                      customer_gst_no: selectedCust.gst_no,
+                      account_type: selectedCust.account_type,
                     });
                   }
                 }}
@@ -325,6 +336,24 @@ export default function CreateInvoice() {
             </div>
             <span className="col-span-12 md:col-span-3 text-xs text-slate-400">Used to compute CGST/SGST vs IGST</span>
           </div>
+
+          {formData.account_type === 'enterprise' && (
+            <div className="p-5 bg-blue-50/50 border border-blue-100 rounded-xl space-y-3 animate-in fade-in zoom-in duration-300">
+              <div className="flex items-center gap-2 text-blue-700 font-bold text-sm uppercase tracking-wider">
+                <Zap size={14} /> B2B Smart Invoicing Active
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-[10px] uppercase font-bold text-slate-400">Company Name</Label>
+                  <p className="font-bold text-slate-700">{formData.customer_company_name}</p>
+                </div>
+                <div>
+                  <Label className="text-[10px] uppercase font-bold text-slate-400">GSTIN</Label>
+                  <p className="font-bold text-slate-700">{formData.customer_gst_no}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Items Table */}
@@ -405,20 +434,20 @@ export default function CreateInvoice() {
               <span>₹{totals.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}</span>
             </div>
             
-            {formData.place_of_supply === 'Tamil Nadu' ? (
+            {(formData.account_type === 'enterprise' || formData.place_of_supply === 'Tamil Nadu') ? (
               <>
                 <div className="flex justify-between text-sm text-slate-500">
-                  <span>CGST</span>
+                  <span>CGST (9%)</span>
                   <span>₹{totals.cgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}</span>
                 </div>
                 <div className="flex justify-between text-sm text-slate-500">
-                  <span>SGST</span>
+                  <span>SGST (9%)</span>
                   <span>₹{totals.sgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}</span>
                 </div>
               </>
             ) : (
                 <div className="flex justify-between text-sm text-slate-500">
-                  <span>IGST</span>
+                  <span>IGST (18%)</span>
                   <span>₹{totals.igst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}</span>
                 </div>
             )}

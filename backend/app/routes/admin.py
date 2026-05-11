@@ -3,12 +3,12 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Dict, Any
 from app.database.db import get_db
 from app.models.orm import User, UserRole, Order, Invoice, DeliveryTask, Product, ActivityLog
-from app.models.schemas import UserRead, DashboardStats, ActivityLogRead
-from app.utils.auth import get_current_active_user
+from app.models.schemas import UserRead, DashboardStats, ActivityLogRead, StaffCreate
+from app.utils.auth import get_current_active_user, get_password_hash
 from sqlalchemy import func
 from datetime import datetime, timedelta
 
-router = APIRouter(prefix="/api/admin", tags=["Admin"])
+router = APIRouter(prefix="/admin", tags=["Admin"])
 
 @router.get("/dashboard-stats", response_model=DashboardStats)
 def get_dashboard_stats(
@@ -125,5 +125,45 @@ def get_active_customers(
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     
-    customers = db.query(User.id, User.full_name, User.email).filter(User.role == UserRole.user).all()
-    return [{"id": c.id, "full_name": c.full_name, "email": c.email} for c in customers]
+    customers = db.query(User.id, User.full_name, User.email, User.account_type, User.company_name, User.gst_no).filter(User.role == UserRole.user).all()
+    return [{"id": c.id, "full_name": c.full_name, "email": c.email, "account_type": c.account_type, "company_name": c.company_name, "gst_no": c.gst_no} for c in customers]
+
+@router.get("/staff", response_model=List[UserRead])
+def get_staff_list(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    if current_user.role not in [UserRole.admin, UserRole.ceo]:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    
+    # Fetch all users where the role is NOT 'customer' or 'user'
+    staff = db.query(User).filter(User.role.notin_([UserRole.user, UserRole.customer])).all()
+    return staff
+
+@router.post("/add-staff", response_model=UserRead)
+def add_new_staff(
+    staff_data: StaffCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    if current_user.role not in [UserRole.admin, UserRole.ceo]:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    
+    # Check if username or email exists
+    existing = db.query(User).filter((User.username == staff_data.username) | (User.email == staff_data.email)).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Username or email already registered")
+    
+    new_staff = User(
+        username=staff_data.username,
+        email=staff_data.email,
+        role=staff_data.role,
+        hashed_password=get_password_hash(staff_data.password),
+        full_name=staff_data.username, # Default
+        account_type="staff"
+    )
+    
+    db.add(new_staff)
+    db.commit()
+    db.refresh(new_staff)
+    return new_staff

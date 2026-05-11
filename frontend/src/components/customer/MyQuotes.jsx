@@ -3,17 +3,19 @@ import { FileText, CheckCircle, XCircle, Clock, Eye, Download, MessageSquare } f
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 export default function MyQuotes() {
   const [quotes, setQuotes] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const fetchQuotes = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/quotes/user/quotes', {
+      const response = await fetch('http://localhost:8000/api/quotes/user', {
         headers: {
           'Authorization': `Bearer ${user.token}`
         }
@@ -42,8 +44,11 @@ export default function MyQuotes() {
         }
       });
       if (response.ok) {
-        toast.success("Quote Approved! Admin will generate the final invoice.");
-        fetchQuotes();
+        toast.success("Quote Approved! Your invoice has been generated and sent to your portal.", {
+          icon: '🚀',
+          style: { background: '#10b981', color: '#fff', minWidth: '350px' }
+        });
+        setTimeout(() => navigate('/customer/invoices'), 1500);
       } else {
         toast.error("Failed to approve quote.");
       }

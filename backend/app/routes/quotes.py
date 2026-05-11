@@ -2,11 +2,11 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from typing import List
 from app.database.db import get_db, get_next_id
-from app.models.orm import Quote, QuoteItem, User, Order, OrderStatus
+from app.models.orm import Quote, QuoteItem, User, Order, OrderStatus, Advance
 from app.models.schemas import QuoteCreate, QuoteRead
 from app.utils.auth import get_current_active_user
 
-router = APIRouter(prefix="/api/quotes", tags=["Quotes"])
+router = APIRouter(prefix="/quotes", tags=["Quotes"])
 
 @router.get("/notifications/count")
 def get_notification_counts(
@@ -184,10 +184,12 @@ def get_quote_pdf(
         from app.utils.invoice_maker import generate_pdf_invoice
         generate_pdf_invoice(
             invoice_id=quote.quote_number,
-            customer_email=quote.customer_name or "customer",
+            customer_email=quote.email or "N/A",
             items_list=items_list,
             tax_data=tax_data,
-            terms="Quote valid until expiry date. Subject to admin approval."
+            terms="Quote valid until expiry date. Subject to admin approval.",
+            customer_company_name=quote.customer_company_name,
+            customer_gst_no=quote.customer_gst_no
         )
 
     return {"file_url": file_url}
@@ -249,13 +251,119 @@ def approve_quote(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    quote = db.query(Quote).filter(Quote.id == quote_id, Quote.user_id == current_user.id).first()
-    if not quote:
-        raise HTTPException(status_code=404, detail="Quote not found")
-    
-    quote.status = "approved"
-    db.commit()
-    return {"message": "Quote approved successfully", "status": quote.status}
+    from sqlalchemy.orm import joinedload
+    from app.models.orm import Invoice, InvoiceItem, ActivityLog
+    from app.database.db import get_next_id
+    from datetime import datetime, timedelta
+    from app.utils.invoice_maker import generate_pdf_invoice
+    from app.utils.calculations import calculate_gst_totals
+
+    try:
+        quote = db.query(Quote).options(joinedload(Quote.items)).filter(Quote.id == quote_id, Quote.user_id == current_user.id).first()
+        if not quote:
+            raise HTTPException(status_code=404, detail="Quote not found")
+        
+        quote.status = "Approved"
+
+        # Fetch customer email for the invoice
+        customer = db.query(User).filter(User.id == quote.user_id).first()
+        customer_email = customer.email if customer else "customer@example.com"
+
+        # Auto-Invoice Generation
+        invoice_number = get_next_id("INV-B", "invoices", "invoice_number")
+        new_invoice = Invoice(
+            invoice_number=invoice_number,
+            order_id=quote.order_id,
+            user_id=quote.user_id,
+            customer_name=quote.customer_name,
+            email=customer_email,
+            place_of_supply=quote.place_of_supply,
+            invoice_date=datetime.now().strftime("%Y-%m-%d"),
+            due_date=(datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d"),
+            subtotal=quote.subtotal,
+            cgst=quote.cgst,
+            sgst=quote.sgst,
+            igst=quote.igst,
+            grand_total=quote.grand_total,
+            customer_company_name=customer.company_name if customer else None,
+            customer_gst_no=customer.gst_no if customer else None,
+            status="Sent" # Automatically 'Sent' as requested
+        )
+        db.add(new_invoice)
+        db.flush()
+
+        for item in quote.items:
+            inv_item = InvoiceItem(
+                invoice_id=new_invoice.id,
+                item_details=item.item_details,
+                quantity=item.quantity,
+                rate=item.rate,
+                discount_amount=item.discount_amount,
+                discount_type=item.discount_type,
+                tax_type=item.tax_type,
+                amount=item.amount
+            )
+            db.add(inv_item)
+
+        # 💰 AUTOMATION: Apply Customer Advances (Wallet Settlement)
+        from app.utils.wallet import settle_invoice_from_advances
+        settle_invoice_from_advances(db, new_invoice)
+
+        # Flag associated order
+        if quote.order_id:
+            order = db.query(Order).filter(Order.id == quote.order_id).first()
+            if order:
+                order.origin = "quote_derived"
+                order.status = OrderStatus.Invoiced
+
+        db.commit()
+
+        # Trigger PDF Generation immediately for the 'Sent' invoice
+        try:
+            items_for_pdf = [{
+                "Item Name": item.item_details,
+                "Quantity": item.quantity,
+                "Price": item.rate,
+                "Amount": item.amount
+            } for item in quote.items]
+
+            tax_data = {
+                "cgst": quote.cgst,
+                "sgst": quote.sgst,
+                "igst": quote.igst,
+                "grand_total": quote.grand_total,
+                "subtotal": quote.subtotal,
+                "settled_amount": new_invoice.settled_amount,
+                "amount_paid": new_invoice.amount_paid
+            }
+
+            generate_pdf_invoice(
+                invoice_id=invoice_number,
+                customer_email=customer_email or "N/A",
+                items_list=items_for_pdf,
+                tax_data=tax_data,
+                terms="Bulk Order Invoice generated from approved quote. Please make payment to initiate fulfillment.",
+                customer_company_name=new_invoice.customer_company_name,
+                customer_gst_no=new_invoice.customer_gst_no
+            )
+            
+            # Log the automated activity
+            db.add(ActivityLog(
+                action=f"Automated: Generated & Sent Invoice #{invoice_number} from Quote #{quote.quote_number}",
+                category="Finance",
+                user_id=current_user.id
+            ))
+            db.commit()
+        except Exception as pdf_err:
+            print(f"⚠️ PDF generation or logging failed: {str(pdf_err)}")
+            # Don't fail the whole transaction if just PDF/Log fails
+
+        return {"message": "Quote approved, invoice generated and sent to your portal successfully", "status": quote.status, "invoice_number": invoice_number}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Failed to process quote approval: {str(e)}")
 
 @router.post("/", response_model=QuoteRead)
 def create_quote(
@@ -276,11 +384,15 @@ def create_quote(
 
         # Ensure the quote belongs to the targeted customer, not the admin creating it
         assigned_user_id = customer_user_id if customer_user_id else current_user.id
+        assigned_customer = db.query(User).filter(User.id == assigned_user_id).first()
 
         # Create Quote Header
         db_quote = Quote(
             quote_number=quote_id,
             user_id=assigned_user_id,
+            customer_company_name=assigned_customer.company_name if assigned_customer else None,
+            customer_gst_no=assigned_customer.gst_no if assigned_customer else None,
+            email=assigned_customer.email if assigned_customer else None,
             **quote_dict
         )
         db.add(db_quote)

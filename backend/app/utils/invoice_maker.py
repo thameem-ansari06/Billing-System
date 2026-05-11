@@ -7,7 +7,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import inch
 
-def generate_pdf_invoice(invoice_id, customer_email, items_list, tax_data=None, terms=None, logo_path=None, logistics_data=None):
+def generate_pdf_invoice(invoice_id, customer_email, items_list, tax_data=None, terms=None, logo_path=None, logistics_data=None, customer_company_name=None, customer_gst_no=None):
     """
     Professional PDF Generator for Antigravity Billing.
     Supports Tax Breakdown, Signatory, Terms, and Logistics.
@@ -17,9 +17,15 @@ def generate_pdf_invoice(invoice_id, customer_email, items_list, tax_data=None, 
     # Math Engine
     df = pd.DataFrame(items_list)
     df['Price'] = df['Price'].astype(float)
+    df['Quantity'] = df['Quantity'].astype(float)
     
-    # Use provided tax_data if available, else fallback to 18%
-    subtotal = df['Price'].sum()
+    # Calculate subtotal as sum of amounts
+    if 'Amount' in df.columns:
+        df['Amount'] = df['Amount'].astype(float)
+        subtotal = df['Amount'].sum()
+    else:
+        subtotal = (df['Price'] * df['Quantity']).sum()
+
     if tax_data:
         cgst = tax_data.get('cgst', 0)
         sgst = tax_data.get('sgst', 0)
@@ -54,8 +60,15 @@ def generate_pdf_invoice(invoice_id, customer_email, items_list, tax_data=None, 
     elements.append(Spacer(1, 20))
     
     # 2. Bill To & Date
+    bill_to_content = [Paragraph(f"<b>BILL TO:</b>", styles['Normal'])]
+    if customer_company_name:
+        bill_to_content.append(Paragraph(f"<b>{customer_company_name}</b>", styles['Normal']))
+    if customer_gst_no:
+        bill_to_content.append(Paragraph(f"GSTIN: {customer_gst_no}", styles['Normal']))
+    bill_to_content.append(Paragraph(customer_email, styles['Normal']))
+
     info_data = [[
-        Paragraph(f"<b>BILL TO:</b><br/>{customer_email}", styles['Normal']),
+        bill_to_content,
         Paragraph(f"<b>DATE:</b> {date.today().strftime('%d %b %Y')}", styles['Normal'])
     ]]
     info_table = Table(info_data, colWidths=[3.5*inch, 3.5*inch])
@@ -113,12 +126,22 @@ def generate_pdf_invoice(invoice_id, customer_email, items_list, tax_data=None, 
         ['', 'Sub Total:', f"₹ {subtotal:.2f}"],
     ]
     if igst > 0:
-        summary_data.append(['', 'IGST:', f"₹ {igst:.2f}"])
+        summary_data.append(['', 'IGST (18%):', f"₹ {igst:.2f}"])
+    elif cgst > 0 and sgst > 0:
+        summary_data.append(['', 'CGST (9%):', f"₹ {cgst:.2f}"])
+        summary_data.append(['', 'SGST (9%):', f"₹ {sgst:.2f}"])
     else:
-        summary_data.append(['', 'CGST:', f"₹ {cgst:.2f}"])
-        summary_data.append(['', 'SGST:', f"₹ {sgst:.2f}"])
+        summary_data.append(['', 'GST Total:', f"₹ {(cgst + sgst + igst):.2f}"])
     
     summary_data.append(['', 'GRAND TOTAL:', f"₹ {grand_total:.2f}"])
+    
+    # 💰 Advance Settlement Details
+    settled_amount = tax_data.get('settled_amount', 0) if tax_data else 0
+    if settled_amount > 0:
+        summary_data.append(['', 'Settled from Advance:', f"- ₹ {settled_amount:.2f}"])
+        amount_paid = tax_data.get('amount_paid', settled_amount)
+        balance_due = max(0, grand_total - amount_paid)
+        summary_data.append(['', 'BALANCE DUE:', f"₹ {balance_due:.2f}"])
     
     summary_table = Table(summary_data, colWidths=[4*inch, 1.5*inch, 1.5*inch])
     summary_table.setStyle(TableStyle([

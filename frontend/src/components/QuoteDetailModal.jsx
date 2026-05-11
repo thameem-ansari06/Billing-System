@@ -80,7 +80,7 @@ export default function QuoteDetailModal({ quoteId, onClose, onStatusChange }) {
       if (!res.ok) throw new Error('Status update failed — HTTP ' + res.status);
       const data = await res.json();
       setQuote(prev => ({ ...prev, status: data.status }));
-      onStatusChange?.();
+      onStatusChange?.(newStatus);
     } catch (e) {
       alert('Status update failed: ' + e.message);
     } finally {

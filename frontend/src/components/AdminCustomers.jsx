@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 
-const API = 'http://localhost:8000';
+import { API } from '../config';
 
 export default function AdminCustomers() {
   const [customers, setCustomers] = useState([]);
@@ -18,7 +18,7 @@ export default function AdminCustomers() {
   const fetchCustomers = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API}/api/admin/customers`, {
+      const res = await axios.get(`${API}/admin/customers`, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
       setCustomers(res.data || []);

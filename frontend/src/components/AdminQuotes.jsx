@@ -248,7 +248,11 @@ export default function AdminQuotes() {
         <QuoteDetailModal
           quoteId={selectedQuoteId}
           onClose={() => setSelectedQuoteId(null)}
-          onStatusChange={() => { fetchQuotes(); setSelectedQuoteId(null); }}
+          onStatusChange={(status) => { 
+            fetchQuotes(); 
+            setSelectedQuoteId(null); 
+            if (status === 'approved') navigate('/invoices');
+          }}
         />
       )}
     </>

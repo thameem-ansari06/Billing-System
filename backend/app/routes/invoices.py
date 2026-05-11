@@ -13,9 +13,9 @@ from app.utils.invoice_maker import generate_pdf_invoice
 
 from app.utils.calculations import calculate_gst_totals
 from app.utils.auth import get_current_active_user
-from app.models.orm import User
+from app.models.orm import User, Advance
 
-router = APIRouter(prefix="/api/invoices", tags=["Invoices"])
+router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
 @router.get("/next-number")
 def get_next_invoice_number():
@@ -45,6 +45,8 @@ def get_all_invoices(db: Session = Depends(get_db), current_user: User = Depends
             "sgst": inv.sgst,
             "igst": inv.igst,
             "grand_total": inv.grand_total,
+            "customer_company_name": inv.customer_company_name,
+            "customer_gst_no": inv.customer_gst_no,
             "amount_paid": inv.amount_paid,
             "email": inv.email,
             "status": inv.status,
@@ -101,16 +103,25 @@ def generate_invoice_pdf(
             "Amount": item.amount
         } for item in db_invoice.items]
 
-        # Re-calc totals for PDF consistency
-        items_dicts = [{"amount": item.amount, "tax_type": item.tax_type} for item in db_invoice.items]
-        calc = calculate_gst_totals(items_dicts, db_invoice.place_of_supply, db_invoice.adjustment or 0)
+        # Use DB values for consistency, especially for B2B Smart Invoicing
+        calc = {
+            "subtotal": db_invoice.subtotal,
+            "cgst": db_invoice.cgst,
+            "sgst": db_invoice.sgst,
+            "igst": db_invoice.igst,
+            "grand_total": db_invoice.grand_total,
+            "settled_amount": db_invoice.settled_amount,
+            "amount_paid": db_invoice.amount_paid
+        }
 
         generate_pdf_invoice(
             invoice_id=db_invoice.invoice_number,
-            customer_email=db_invoice.email or "customer@example.com",
+            customer_email=db_invoice.email or "N/A",
             items_list=items_list,
             tax_data=calc,
-            terms=db_invoice.terms_conditions
+            terms=db_invoice.terms_conditions,
+            customer_company_name=db_invoice.customer_company_name,
+            customer_gst_no=db_invoice.customer_gst_no
         )
 
     # 4. Return JSON URL instead of FileResponse
@@ -235,10 +246,28 @@ def create_invoice(invoice_data: InvoiceCreate, db: Session = Depends(get_db), c
     # Fetch a fresh number at save time to ensure no race conditions
     gn_invoice_id = get_next_id("INV", "invoices", "invoice_number")
     
+    # 🔍 Fetch Customer Account Type for B2B Smart Invoicing
+    customer = db.query(User).filter(User.id == (invoice_data.user_id or current_user.id)).first()
+    is_enterprise = customer and customer.account_type == 'enterprise'
+    
     # Recalculate totals on backend to ensure consistency
     items_dicts = [item.model_dump() for item in invoice_data.items]
-    # We ignore the grand_total sent from frontend and recalculate
-    calc = calculate_gst_totals(items_dicts, invoice_data.place_of_supply, invoice_data.adjustment)
+    
+    if is_enterprise:
+        # B2B Force 18% split (9% CGST, 9% SGST) as per user request
+        subtotal = sum(item['amount'] for item in items_dicts)
+        total_tax = subtotal * 0.18
+        calc = {
+            "subtotal": round(subtotal, 2),
+            "cgst": round(total_tax / 2, 2),
+            "sgst": round(total_tax / 2, 2),
+            "igst": 0.0,
+            "adjustment": invoice_data.adjustment,
+            "grand_total": round(subtotal + total_tax + invoice_data.adjustment, 2)
+        }
+    else:
+        # Standard calculation
+        calc = calculate_gst_totals(items_dicts, invoice_data.place_of_supply, invoice_data.adjustment)
     
     try:
         db_invoice = Invoice(
@@ -249,7 +278,10 @@ def create_invoice(invoice_data: InvoiceCreate, db: Session = Depends(get_db), c
             sgst=calc["sgst"],
             igst=calc["igst"],
             grand_total=calc["grand_total"],
-            **invoice_data.model_dump(exclude={"items", "invoice_number", "subtotal", "cgst", "sgst", "igst", "grand_total"})
+            customer_company_name=customer.company_name if customer else None,
+            customer_gst_no=customer.gst_no if customer else None,
+            email=customer.email if customer else invoice_data.email,
+            **invoice_data.model_dump(exclude={"items", "invoice_number", "subtotal", "cgst", "sgst", "igst", "grand_total", "customer_company_name", "customer_gst_no", "email"})
         )
         db.add(db_invoice)
         db.flush()
@@ -260,14 +292,18 @@ def create_invoice(invoice_data: InvoiceCreate, db: Session = Depends(get_db), c
                 **item_data.model_dump()
             )
             db.add(db_item)
-            
+        
+        # 💰 AUTOMATION: Apply Customer Advances (Wallet Settlement)
+        from app.utils.wallet import settle_invoice_from_advances
+        settle_invoice_from_advances(db, db_invoice)
+                
         db.commit()
         db.refresh(db_invoice)
 
         if db_invoice.status == "Sent":
             generate_pdf_invoice(
                 invoice_id=db_invoice.invoice_number,
-                customer_email=db_invoice.email or "customer@example.com",
+                customer_email=db_invoice.email or "N/A",
                 items_list=[{
                     "Item Name": item.item_details, 
                     "Quantity": item.quantity,
@@ -275,7 +311,9 @@ def create_invoice(invoice_data: InvoiceCreate, db: Session = Depends(get_db), c
                     "Amount": item.amount
                 } for item in db_invoice.items],
                 tax_data=calc,
-                terms=db_invoice.terms_conditions
+                terms=db_invoice.terms_conditions,
+                customer_company_name=db_invoice.customer_company_name,
+                customer_gst_no=db_invoice.customer_gst_no
             )
 
         return db_invoice

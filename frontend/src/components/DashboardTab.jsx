@@ -17,10 +17,10 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-const API = 'http://localhost:8000/api';
+import { API, BASE_URL } from '../config';
 
 export default function AdminDashboard() {
-  const { user } = useAuth();
+  const { user, activeUsers, isWsConnected } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState(null);
   const [logs, setLogs] = useState([]);
@@ -188,6 +188,42 @@ export default function AdminDashboard() {
                 )}
               </CardContent>
             </Card>
+
+            <Card className="border-none shadow-xl shadow-slate-200/50 rounded-[2rem] overflow-hidden bg-white">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg font-black text-slate-800">Live System Activity</CardTitle>
+                  <CardDescription className="text-[10px] font-black uppercase tracking-widest text-slate-400">Current Online Users</CardDescription>
+                </div>
+                <div className={`w-2 h-2 rounded-full ${isWsConnected ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)] animate-pulse' : 'bg-slate-300'}`} />
+              </CardHeader>
+              <CardContent className="space-y-3 max-h-[350px] overflow-auto pr-2 custom-scrollbar">
+                {activeUsers.length === 0 ? (
+                  <div className="py-20 text-center space-y-2">
+                    <Users className="mx-auto text-slate-200" size={32} />
+                    <p className="text-xs font-bold text-slate-400">No users online</p>
+                  </div>
+                ) : (
+                  activeUsers.map((u, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/50 hover:bg-slate-50 transition-colors group">
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-black text-sm group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                            {u.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full animate-blink" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-slate-700 leading-tight">{u.name}</p>
+                          <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">{u.role}</p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-[8px] font-black uppercase border-emerald-100 text-emerald-600 bg-emerald-50/50 px-2">Online</Badge>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
           </div>
         )}
 
@@ -248,7 +284,7 @@ export default function AdminDashboard() {
               <TableBody>
                 {datasets.inventory.map((prod) => (
                   <TableRow key={prod.id} className="hover:bg-slate-50 transition-colors border-slate-50">
-                    <TableCell className="pl-8"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-slate-100 overflow-hidden flex items-center justify-center">{prod.image_url ? <img src={`http://localhost:8000/${prod.image_url}`} className="w-full h-full object-cover" /> : <Package className="text-slate-300" size={16} />}</div><span className="font-black text-slate-800 text-sm tracking-tight">{prod.name}</span></div></TableCell>
+                    <TableCell className="pl-8"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-slate-100 overflow-hidden flex items-center justify-center">{prod.image_url ? <img src={`${BASE_URL}/${prod.image_url}`} className="w-full h-full object-cover" /> : <Package className="text-slate-300" size={16} />}</div><span className="font-black text-slate-800 text-sm tracking-tight">{prod.name}</span></div></TableCell>
                     <TableCell className="text-xs font-bold text-slate-400">{prod.product_id}</TableCell>
                     <TableCell className={`font-black text-sm ${prod.stock_quantity < 10 ? 'text-rose-600' : 'text-slate-700'}`}>{prod.stock_quantity}</TableCell>
                     <TableCell className="text-center"><Badge className={prod.stock_quantity < 10 ? 'bg-rose-100 text-rose-700 border-none text-[9px]' : 'bg-emerald-100 text-emerald-700 border-none text-[9px]'}>{prod.stock_quantity < 10 ? 'LOW STOCK' : 'IN STOCK'}</Badge></TableCell>

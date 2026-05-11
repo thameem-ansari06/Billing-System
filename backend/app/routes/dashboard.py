@@ -4,7 +4,7 @@ from app.database.db import get_db
 from app.models.orm import Invoice, DeliveryTask, User
 from app.utils.auth import get_current_active_user
 
-router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
+router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 @router.get("/")
 def get_dashboard_stats(

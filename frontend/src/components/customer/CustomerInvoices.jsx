@@ -58,6 +58,12 @@ export default function CustomerInvoices() {
     }
   };
 
+  const handleViewDetails = (invoiceNumber) => {
+    // Navigate to the new detail view
+    const safeName = encodeURIComponent(invoiceNumber);
+    window.location.href = `/customer/invoices/${safeName}`;
+  };
+
   const handleViewBill = (invoiceNumber) => {
     const safeName = invoiceNumber.replace(/\//g, '_').replace(/\\/g, '_');
     window.open(`http://localhost:8000/static/invoices/${safeName}.pdf`, '_blank');
@@ -129,9 +135,9 @@ export default function CustomerInvoices() {
                             <Button 
                               size="sm" 
                               className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-                              onClick={() => handleDecision(inv.id, 'ACCEPTED')}
+                              onClick={() => handleViewDetails(inv.invoice_number)}
                             >
-                              <CheckCircle size={14} className="mr-1" /> Accept
+                              <CheckCircle size={14} className="mr-1" /> View & Pay
                             </Button>
                             <Button 
                               size="sm" 
@@ -139,6 +145,7 @@ export default function CustomerInvoices() {
                               className="text-red-600 border-red-200 hover:bg-red-50 font-bold"
                               onClick={() => setSelectedInvoice(inv)}
                             >
+
                               <XCircle size={14} className="mr-1" /> Reject
                             </Button>
                           </>

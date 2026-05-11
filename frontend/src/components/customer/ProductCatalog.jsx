@@ -6,17 +6,25 @@ import { useCart } from '../../context/CartContext';
 import ProductDetailModal from './ProductDetailModal';
 import ProductCard from './ProductCard';
 
-const API = 'http://localhost:8000';
+import { API } from '../../config';
 
 const SkeletonCard = () => (
-  <div className="bg-white rounded-2xl border border-slate-100 p-4 space-y-4 animate-pulse">
-    <div className="aspect-square bg-slate-100 rounded-xl" />
-    <div className="space-y-2">
-      <div className="h-4 bg-slate-100 rounded w-1/3" />
-      <div className="h-6 bg-slate-100 rounded w-3/4" />
-      <div className="h-12 bg-slate-100 rounded" />
+  <div className="bg-white rounded-3xl border border-slate-50 p-0 animate-pulse flex flex-col h-[520px]">
+    <div className="h-[240px] bg-slate-50 rounded-t-3xl" />
+    <div className="p-6 space-y-6 flex-1 flex flex-col">
+      <div className="space-y-2">
+        <div className="h-3 bg-slate-50 rounded w-1/4" />
+        <div className="h-6 bg-slate-50 rounded w-3/4" />
+      </div>
+      <div className="flex-1 space-y-2">
+        <div className="h-3 bg-slate-50 rounded w-full" />
+        <div className="h-3 bg-slate-50 rounded w-full" />
+        <div className="h-3 bg-slate-50 rounded w-2/3" />
+      </div>
+      <div className="pt-4 border-t border-slate-50">
+        <div className="h-14 bg-slate-50 rounded-2xl w-full" />
+      </div>
     </div>
-    <div className="h-10 bg-slate-100 rounded-xl" />
   </div>
 );
 
@@ -31,7 +39,7 @@ export default function ProductCatalog() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
-    axios.get(`${API}/api/products/`)
+    axios.get(`${API}/products/`)
       .then(res => setProducts(res.data?.products || []))
       .catch(() => setError('Could not load products. Please check your connection.'))
       .finally(() => setLoading(false));
@@ -57,37 +65,49 @@ export default function ProductCatalog() {
   };
 
   if (error) return (
-    <div className="min-h-[40vh] flex flex-col items-center justify-center gap-3 text-red-500">
-      <AlertCircle size={44} />
-      <p className="font-semibold">{error}</p>
-      <button onClick={() => window.location.reload()} className="text-sm font-bold text-indigo-600 hover:underline">Try Again</button>
+    <div className="min-h-[40vh] flex flex-col items-center justify-center gap-4 text-red-500">
+      <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center">
+        <AlertCircle size={32} />
+      </div>
+      <div className="text-center space-y-1">
+        <p className="font-bold text-slate-800">Connection Error</p>
+        <p className="text-sm text-slate-500">{error}</p>
+      </div>
+      <button onClick={() => window.location.reload()} className="px-6 py-2 bg-indigo-600 text-white rounded-full text-sm font-bold shadow-lg shadow-indigo-100">Try Again</button>
     </div>
   );
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
       {/* Premium Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-widest">
-            <Star size={14} className="fill-indigo-600" /> Premium Catalog
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 bg-white p-8 md:p-10 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden group">
+        <div className="absolute top-0 right-0 p-12 opacity-[0.03] group-hover:scale-110 transition-transform duration-1000">
+           <Package size={180} />
+        </div>
+        
+        <div className="space-y-2 relative">
+          <div className="flex items-center gap-2 text-indigo-600 font-black text-[10px] uppercase tracking-[0.3em]">
+            <Star size={14} className="fill-indigo-600" /> Premium Collection
           </div>
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">
-            Explore Products
+          <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight">
+            Product Catalog
           </h1>
-          <p className="text-sm text-slate-400 font-medium">Browse our exclusive collection of GST-compliant inventory items.</p>
+          <p className="text-sm text-slate-400 font-medium max-w-md">Discover our professional-grade inventory with transparent GST-inclusive pricing.</p>
         </div>
 
         {/* Search Bar */}
-        <div className="relative w-full md:w-96 group">
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
-          <input
-            type="text"
-            placeholder="Search by name, ID or description..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-12 pr-4 py-3.5 text-sm bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500/20 focus:bg-white transition-all shadow-inner"
-          />
+        <div className="relative w-full md:w-[400px] group relative">
+          <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl blur opacity-0 group-focus-within:opacity-10 transition duration-500"></div>
+          <div className="relative">
+            <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+            <input
+              type="text"
+              placeholder="Search by name, ID or description..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-14 pr-6 py-4 text-sm bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-indigo-100 transition-all outline-none"
+            />
+          </div>
         </div>
       </div>
 

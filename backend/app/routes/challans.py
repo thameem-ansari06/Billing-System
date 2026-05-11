@@ -10,7 +10,7 @@ from app.utils.calculations import calculate_gst_totals
 from app.utils.auth import get_current_active_user
 from app.models.orm import User
 
-router = APIRouter(prefix="/api/delivery-challans", tags=["Delivery Challans"])
+router = APIRouter(prefix="/delivery-challans", tags=["Delivery Challans"])
 
 @router.get("/next-number")
 def get_next_challan_number():

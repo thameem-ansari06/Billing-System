@@ -10,22 +10,25 @@ from app.database.db import get_db
 from app.models.orm import DeliveryTask, User, UserRole, DeliveryStatus, Invoice, Order, ActivityLog
 from sqlalchemy.orm import joinedload
 from app.utils.auth import get_current_active_user
-from app.models.schemas import DeliveryTaskRead, UserRead
+from app.models.schemas import DeliveryTaskRead, DeliveryTaskAdminRead, UserRead
+from fastapi import BackgroundTasks
+from app.utils.email import send_otp_email
 
-router = APIRouter(prefix="/api/delivery-tasks", tags=["Delivery Tasks"])
+router = APIRouter(prefix="/delivery-tasks", tags=["Delivery Tasks"])
 
-UPLOAD_DIR = "backend/static/uploads/proofs"
+UPLOAD_DIR = "static/uploads/proofs"
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 def log_status_change(task: DeliveryTask, new_status: str):
     """Utility to append status change timestamps to JSON logs."""
     logs = task.timestamp_logs.copy() if task.timestamp_logs else {}
-    logs[new_status] = datetime.now().isoformat()
+    status_str = new_status.value if hasattr(new_status, "value") else str(new_status)
+    logs[status_str] = datetime.now().isoformat()
     task.timestamp_logs = logs
     task.status = new_status
 
-@router.get("/", response_model=List[DeliveryTaskRead])
+@router.get("/")
 def get_delivery_tasks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
@@ -48,7 +51,9 @@ def get_delivery_tasks(
         if not task.order_reference and task.invoice:
             task.order_reference = str(task.invoice.order_id) if task.invoice.order_id else task.invoice.reference_number
             
-    return tasks
+    if current_user.role in [UserRole.admin, UserRole.ceo, UserRole.sales]:
+        return [DeliveryTaskAdminRead.model_validate(t) for t in tasks]
+    return [DeliveryTaskRead.model_validate(t) for t in tasks]
 
 @router.get("/drivers", response_model=List[UserRead])
 def get_drivers(
@@ -117,7 +122,7 @@ def get_task_by_order(
     
     return task
 
-@router.get("/{task_id}", response_model=DeliveryTaskRead)
+@router.get("/{task_id}")
 def get_task_detail(
     task_id: int,
     db: Session = Depends(get_db),
@@ -135,7 +140,9 @@ def get_task_detail(
     if not task.order_reference and task.invoice:
         task.order_reference = str(task.invoice.order_id) if task.invoice.order_id else task.invoice.reference_number
         
-    return task
+    if current_user.role in [UserRole.admin, UserRole.ceo, UserRole.sales]:
+        return DeliveryTaskAdminRead.model_validate(task)
+    return DeliveryTaskRead.model_validate(task)
 
 @router.put("/{task_id}/assign")
 def assign_driver(
@@ -153,9 +160,11 @@ def assign_driver(
         raise HTTPException(status_code=404, detail="Task not found")
     
     task.driver_id = driver_id
-    # Generate a simple 4-digit pickup code for warehouse verification
-    task.pickup_code = str(random.randint(1000, 9999))
     log_status_change(task, DeliveryStatus.ASSIGNED)
+    
+    # Force generate pickup OTP if missing
+    if not task.pickup_otp:
+        task.pickup_otp = str(random.randint(100000, 999999))
     
     # Log Activity
     db.add(ActivityLog(
@@ -165,12 +174,13 @@ def assign_driver(
     ))
     
     db.commit()
-    return {"message": "Driver assigned successfully", "pickup_code": task.pickup_code}
+    db.refresh(task)
+    return {"message": "Driver assigned successfully", "pickup_otp": task.pickup_otp}
 
 @router.post("/{task_id}/verify-pickup")
-def verify_pickup(
+async def verify_pickup(
     task_id: int,
-    pickup_code: str,
+    otp: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -179,19 +189,23 @@ def verify_pickup(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     
-    if task.pickup_code != pickup_code:
-        raise HTTPException(status_code=400, detail="Invalid Pickup Code")
+    if task.pickup_otp != otp:
+        raise HTTPException(status_code=400, detail="Invalid Pickup OTP")
     
     log_status_change(task, DeliveryStatus.PICKED_UP)
     
     # Log Activity
     db.add(ActivityLog(
-        action=f"Order #{task.invoice_number} Picked Up",
+        action=f"Order #{task.invoice_number} Picked Up (OTP Verified)",
         category="Logistics",
         user_id=current_user.id
     ))
     
     db.commit()
+
+    from app.utils.websocket_manager import manager
+    await manager.broadcast_to_admin({"type": "status_update", "invoice": task.invoice_number, "status": "PICKED_UP"})
+
     return {"message": "Pickup verified", "status": task.status}
 
 @router.put("/{task_id}/status")
@@ -225,43 +239,117 @@ def update_task_status(
     db.commit()
     return {"message": "Status updated", "new_status": task.status}
 
-@router.post("/send-otp/{task_id}")
-def send_otp(
+@router.post("/{task_id}/arrive")
+async def mark_arrived(
     task_id: int,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Generate 4-digit OTP and 'send' to customer."""
-    task = db.query(DeliveryTask).filter(DeliveryTask.id == task_id).first()
+    """Driver marks task as arrived and triggers email."""
+    # Use joinedload to fetch associated invoice to get email
+    task = db.query(DeliveryTask).options(
+        joinedload(DeliveryTask.invoice).joinedload(Invoice.user)
+    ).filter(DeliveryTask.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    if task.status not in [DeliveryStatus.PICKED_UP, DeliveryStatus.IN_TRANSIT, DeliveryStatus.ARRIVED]:
+        raise HTTPException(status_code=400, detail=f"Cannot transition to ARRIVED from {task.status}")
+
+    log_status_change(task, DeliveryStatus.ARRIVED)
     
-    otp = str(random.randint(1000, 9999))
-    task.otp_code = otp
+    # Log Activity
+    db.add(ActivityLog(
+        action=f"Order #{task.invoice_number} Arrived at Destination",
+        category="Logistics",
+        user_id=current_user.id
+    ))
     db.commit()
-    
-    # MOCK SENDING
-    print(f"DEBUG: Sending OTP {otp} to customer for Task #{task_id}")
-    
-    return {"message": "OTP sent successfully", "otp_debug": otp} # otp_debug for demo
 
+    # Fetch customer email
+    customer_email = None
+    if task.invoice:
+        customer_email = task.invoice.email
+        if not customer_email and task.invoice.user:
+            customer_email = task.invoice.user.email
 
-@router.post("/verify-otp/{task_id}")
-async def verify_otp_and_complete(
+    # Auto-generate if missing for backward compatibility
+    if not task.delivery_otp:
+        task.delivery_otp = str(random.randint(100000, 999999))
+        db.commit()
+        print(f"[DEBUG] /arrive - Auto-generated missing delivery OTP for task {task_id}")
+
+    if not customer_email:
+        print(f"ERROR: Missing customer email for Task {task_id}")
+        raise HTTPException(status_code=400, detail="Incomplete delivery data: Missing customer email.")
+        
+    background_tasks.add_task(send_otp_email, email_to=customer_email, otp=task.delivery_otp)
+
+    # Broadcast status change
+    from app.utils.websocket_manager import manager
+    await manager.broadcast_to_admin({"type": "status_update", "invoice": task.invoice_number, "status": "ARRIVED"})
+
+    return {"message": "Task marked arrived and OTP queued"}
+
+@router.post("/{task_id}/resend-otp")
+def resend_otp(
     task_id: int,
-    otp_code: str = Form(...),
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Resend the delivery OTP email."""
+    task = db.query(DeliveryTask).options(
+        joinedload(DeliveryTask.invoice).joinedload(Invoice.user)
+    ).filter(DeliveryTask.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    print(f"[DEBUG] /resend-otp - Task {task_id} status: {task.status}")
+
+    if task.status not in [DeliveryStatus.PICKED_UP, DeliveryStatus.IN_TRANSIT, DeliveryStatus.ARRIVED]:
+        raise HTTPException(status_code=400, detail="Task must be PICKED_UP, IN_TRANSIT, or ARRIVED to resend OTP")
+
+    customer_email = None
+    if task.invoice:
+        customer_email = task.invoice.email
+        if not customer_email and task.invoice.user:
+            customer_email = task.invoice.user.email
+            
+    print(f"[DEBUG] /resend-otp - Task {task_id} customer_email fetched: {customer_email}")
+
+    if not customer_email:
+        raise HTTPException(status_code=400, detail="Missing customer email. Cannot resend OTP.")
+
+    # Auto-generate if missing for backward compatibility
+    if not task.delivery_otp:
+        task.delivery_otp = str(random.randint(100000, 999999))
+        db.commit()
+        print(f"[DEBUG] /resend-otp - Auto-generated missing delivery OTP for task {task_id}")
+
+    background_tasks.add_task(send_otp_email, email_to=customer_email, otp=task.delivery_otp)
+    return {"message": "OTP resend queued"}
+
+@router.post("/verify-delivery/{task_id}")
+async def verify_delivery_and_complete(
+    task_id: int,
+    otp: str = Form(...),
     signature: str = Form(...), # Base64
     photo: UploadFile = File(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Verify OTP and save e-proof to complete delivery."""
+    """Verify Delivery OTP and save e-proof to complete delivery."""
     task = db.query(DeliveryTask).filter(DeliveryTask.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     
-    if task.otp_code != otp_code:
-        raise HTTPException(status_code=400, detail="Invalid OTP Code")
+    if task.status != DeliveryStatus.ARRIVED:
+        raise HTTPException(status_code=400, detail=f"Task must be ARRIVED, current status: {task.status}")
+
+    if task.delivery_otp != otp:
+        raise HTTPException(status_code=400, detail="Invalid Delivery OTP")
     
     # Save Photo
     if photo:
@@ -293,10 +381,14 @@ async def verify_otp_and_complete(
     
     # Log Activity
     db.add(ActivityLog(
-        action=f"Order #{task.invoice_number} Delivered",
+        action=f"Order #{task.invoice_number} Delivered (OTP Verified)",
         category="Logistics",
         user_id=current_user.id
     ))
     
     db.commit()
+
+    from app.utils.websocket_manager import manager
+    await manager.broadcast_to_admin({"type": "status_update", "invoice": task.invoice_number, "status": "DELIVERED"})
+
     return {"message": "Delivery completed successfully", "status": task.status}

@@ -9,8 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
-import SignatureCanvas from 'react-signature-canvas';
+import SignaturePad from 'react-signature-canvas'
 import VerticalStepper from '../ui/VerticalStepper';
+import { API } from '../../config';
 
 export default function DriverTaskDetail() {
   const { taskId } = useParams();
@@ -22,9 +23,7 @@ export default function DriverTaskDetail() {
   
   // Verification states
   const [pickupCodeInput, setPickupCodeInput] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
   const [otpInput, setOtpInput] = useState('');
-  const [otpDebug, setOtpDebug] = useState('');
 
   // Proof states
   const sigCanvas = useRef(null);
@@ -33,7 +32,7 @@ export default function DriverTaskDetail() {
 
   const fetchTaskDetail = async () => {
     try {
-      const res = await fetch(`http://localhost:8000/api/delivery-tasks/${taskId}`, {
+      const res = await fetch(`${API}/delivery-tasks/${taskId}`, {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       if (!res.ok) throw new Error("Task not found");
@@ -54,7 +53,7 @@ export default function DriverTaskDetail() {
   const handleStatusUpdate = async (newStatus) => {
     setIsActionLoading(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/delivery-tasks/${taskId}/status?status=${newStatus}`, {
+      const res = await fetch(`${API}/delivery-tasks/${taskId}/status?status=${newStatus}`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
@@ -73,7 +72,7 @@ export default function DriverTaskDetail() {
     if (!pickupCodeInput) return toast.error("Enter Pickup Code");
     setIsActionLoading(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/delivery-tasks/${taskId}/verify-pickup?pickup_code=${pickupCodeInput}`, {
+      const res = await fetch(`${API}/delivery-tasks/${taskId}/verify-pickup?otp=${pickupCodeInput}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
@@ -88,23 +87,41 @@ export default function DriverTaskDetail() {
     } finally {
       setIsActionLoading(false);
     }
-  };
-
-  const handleSendOTP = async () => {
+  };  const handleArrive = async () => {
     setIsActionLoading(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/delivery-tasks/send-otp/${taskId}`, {
+      const res = await fetch(`${API}/delivery-tasks/${taskId}/arrive`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
-      const data = await res.json();
       if (res.ok) {
-        setOtpSent(true);
-        setOtpDebug(data.otp_debug);
-        toast.success("OTP Sent to Customer!");
+        toast.success("OTP sent to customer's email");
+        fetchTaskDetail();
+      } else {
+        const error = await res.json();
+        toast.error(error.detail || "Failed to notify arrival");
       }
     } catch (err) {
-      toast.error("Failed to send OTP.");
+      toast.error("An error occurred.");
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    setIsActionLoading(true);
+    try {
+      const res = await fetch(`${API}/delivery-tasks/${taskId}/resend-otp`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
+      if (res.ok) {
+        toast.success("OTP resent to customer's email");
+      } else {
+        toast.error("Failed to resend OTP.");
+      }
+    } catch (err) {
+      toast.error("An error occurred.");
     } finally {
       setIsActionLoading(false);
     }
@@ -116,15 +133,16 @@ export default function DriverTaskDetail() {
     if (sigCanvas.current.isEmpty()) return toast.error("Customer signature required");
 
     setIsActionLoading(true);
-    const signatureBase64 = sigCanvas.current.getTrimmedCanvas().toDataURL('image/png');
-    
-    const formData = new FormData();
-    formData.append('otp_code', otpInput);
-    formData.append('signature', signatureBase64);
-    formData.append('photo', photo);
 
     try {
-      const res = await fetch(`http://localhost:8000/api/delivery-tasks/verify-otp/${taskId}`, {
+      const signatureBase64 = sigCanvas.current.getCanvas().toDataURL('image/png');
+      
+      const formData = new FormData();
+      formData.append('otp', otpInput);
+      formData.append('signature', signatureBase64);
+      formData.append('photo', photo);
+
+      const res = await fetch(`${API}/delivery-tasks/verify-delivery/${taskId}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${user.token}` },
         body: formData
@@ -138,7 +156,8 @@ export default function DriverTaskDetail() {
         toast.error(error.detail || "Failed to verify OTP.");
       }
     } catch (err) {
-      toast.error("An error occurred.");
+      console.error("Complete Delivery Error:", err);
+      toast.error("An error occurred. Check console for details.");
     } finally {
       setIsActionLoading(false);
     }
@@ -282,12 +301,12 @@ export default function DriverTaskDetail() {
             {task.status === 'ASSIGNED' && (
               <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <p className="text-xs font-bold text-slate-400 leading-relaxed">
-                  Enter the <span className="text-white font-black">Pickup Code</span> provided by the warehouse to confirm collection.
+                  Enter the <span className="text-white font-black">Pickup OTP</span> provided by the warehouse to confirm collection.
                 </p>
                 <input 
                   type="text" 
-                  maxLength={4}
-                  placeholder="----"
+                  maxLength={6}
+                  placeholder="------"
                   className="w-full bg-white/5 border-2 border-white/10 rounded-2xl p-5 text-center text-4xl font-black tracking-[0.5em] focus:outline-none focus:border-indigo-500 transition-all placeholder:text-white/10"
                   value={pickupCodeInput}
                   onChange={(e) => setPickupCodeInput(e.target.value)}
@@ -302,25 +321,12 @@ export default function DriverTaskDetail() {
               </div>
             )}
 
-            {/* PICKED_UP -> IN_TRANSIT */}
+            {/* PICKED_UP -> ARRIVED */}
             {task.status === 'PICKED_UP' && (
               <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <p className="text-xs font-bold text-slate-400 leading-relaxed">
-                  Package is secured. Tap below to notify the customer that you are <span className="text-white font-black">In Transit</span>.
+                  Head to the destination. Once you reach the customer, tap <span className="text-white font-black">I Have Arrived</span>.
                 </p>
-                <Button 
-                  className="w-full h-16 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg rounded-2xl shadow-xl shadow-emerald-600/20"
-                  onClick={() => handleStatusUpdate('IN_TRANSIT')}
-                  disabled={isActionLoading}
-                >
-                  {isActionLoading ? <Loader2 className="animate-spin" /> : "Start Journey"}
-                </Button>
-              </div>
-            )}
-
-            {/* IN_TRANSIT -> ARRIVED */}
-            {task.status === 'IN_TRANSIT' && (
-              <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <Button 
                   variant="outline"
                   className="w-full h-14 border-white/10 hover:bg-white/5 text-white font-black rounded-2xl flex gap-2"
@@ -329,47 +335,29 @@ export default function DriverTaskDetail() {
                   <ExternalLink size={18} /> Open Navigation
                 </Button>
                 <Button 
-                  className="w-full h-16 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-lg rounded-2xl shadow-xl shadow-indigo-600/20"
-                  onClick={() => handleStatusUpdate('ARRIVED')}
+                  className="w-full h-16 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-lg rounded-2xl shadow-xl shadow-indigo-600/20 flex gap-2 justify-center items-center"
+                  onClick={handleArrive}
                   disabled={isActionLoading}
                 >
-                  {isActionLoading ? <Loader2 className="animate-spin" /> : "Arrived at Destination"}
-                </Button>
-              </div>
-            )}
-
-            {/* ARRIVED -> OTP Generation */}
-            {task.status === 'ARRIVED' && !otpSent && (
-              <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500 text-center">
-                <p className="text-xs font-bold text-slate-400 leading-relaxed">
-                  Reached customer? Send the <span className="text-white font-black">Verification OTP</span> now.
-                </p>
-                <Button 
-                  className="w-full h-16 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-lg rounded-2xl shadow-xl shadow-indigo-600/20 flex gap-2"
-                  onClick={handleSendOTP}
-                  disabled={isActionLoading}
-                >
-                  <Send size={20} /> Generate OTP
+                  {isActionLoading ? <><Loader2 className="animate-spin" /> Sending OTP...</> : "I Have Arrived"}
                 </Button>
               </div>
             )}
 
             {/* ARRIVED -> OTP Verification & Proof */}
-            {task.status === 'ARRIVED' && otpSent && (
+            {task.status === 'ARRIVED' && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-3">
-                  <div className="p-2 bg-emerald-600 text-white rounded-lg"><Send size={16} /></div>
-                  <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">
-                    OTP Sent! {otpDebug && <span className="text-white ml-2">Code: {otpDebug}</span>}
-                  </p>
-                </div>
-
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Customer OTP</label>
+                  <div className="flex justify-between items-center ml-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Customer Delivery OTP</label>
+                    <button onClick={handleResendOTP} disabled={isActionLoading} className="text-[10px] font-black text-indigo-400 uppercase tracking-widest hover:text-indigo-300">
+                      Resend OTP
+                    </button>
+                  </div>
                   <input 
                     type="text" 
-                    maxLength={4}
-                    placeholder="----"
+                    maxLength={6}
+                    placeholder="------"
                     className="w-full bg-white/5 border-2 border-white/10 rounded-2xl p-5 text-center text-4xl font-black tracking-[0.5em] focus:outline-none focus:border-emerald-500 transition-all placeholder:text-white/10"
                     value={otpInput}
                     onChange={(e) => setOtpInput(e.target.value)}
@@ -398,7 +386,7 @@ export default function DriverTaskDetail() {
                       <button onClick={() => sigCanvas.current.clear()} className="text-[10px] font-black text-red-400 uppercase tracking-widest">Reset</button>
                     </div>
                     <div className="border border-white/10 rounded-2xl bg-white overflow-hidden shadow-inner">
-                      <SignatureCanvas ref={sigCanvas} penColor="black" canvasProps={{className: "w-full h-32 cursor-crosshair"}} />
+                      <SignaturePad ref={sigCanvas} penColor="black" canvasProps={{className: "w-full h-32 cursor-crosshair"}} />
                     </div>
                   </div>
                 </div>

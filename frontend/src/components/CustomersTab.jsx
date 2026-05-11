@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const API = 'http://localhost:8000';
+import { API } from '../config';
 
 export default function CustomersTab() {
   const [customers, setCustomers] = useState([]);
@@ -23,7 +23,7 @@ export default function CustomersTab() {
   const fetchCustomers = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API}/api/customers/`);
+      const res = await axios.get(`${API}/customers/`);
       setCustomers(res.data.customers || []);
     } catch (err) {
       console.error("Fetch Customers Error:", err);

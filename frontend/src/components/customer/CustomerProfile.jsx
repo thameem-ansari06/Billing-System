@@ -4,7 +4,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 
-const API = 'http://localhost:8000';
+import { API } from '../../config';
 
 const TABS = ['Profile', 'Addresses', 'Security'];
 

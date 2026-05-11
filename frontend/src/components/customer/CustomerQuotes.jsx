@@ -6,17 +6,21 @@ import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 
+import { useNavigate } from 'react-router-dom';
+import { API } from '../../config';
+
 export default function CustomerQuotes() {
   const [quotes, setQuotes] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const fetchQuotes = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.get('http://localhost:8000/api/quotes/user', {
+      const response = await axios.get(`${API}/quotes/user`, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
       console.log("Customer Quotes fetched:", response.data);
@@ -37,19 +41,26 @@ export default function CustomerQuotes() {
 
   const handleUpdateStatus = async (quoteId, status) => {
     try {
-      const response = await axios.put(
-        `http://localhost:8000/api/quotes/${quoteId}/status?status=${status}`,
-        {}, // Empty data as status is a query param
-        { 
-          headers: { Authorization: `Bearer ${user.token}` } 
-        }
-      );
+      let response;
+      if (status === 'approved') {
+        // Use the dedicated approve endpoint for full automation (creates invoice, sets to Sent, generates PDF)
+        response = await axios.put(`${API}/quotes/${quoteId}/approve`, {}, {
+          headers: { Authorization: `Bearer ${user.token}` }
+        });
+      } else {
+        response = await axios.put(
+          `${API}/quotes/${quoteId}/status?status=${status}`,
+          {}, 
+          { headers: { Authorization: `Bearer ${user.token}` } }
+        );
+      }
 
       if (status === 'approved') {
-        toast.success("Quote Approved! Redirecting for fulfillment...", {
+        toast.success("Quote Approved! Your invoice has been generated and sent to your portal.", {
           icon: '🚀',
-          style: { background: '#10b981', color: '#fff' }
+          style: { background: '#10b981', color: '#fff', minWidth: '350px' }
         });
+        setTimeout(() => navigate('/customer/invoices'), 1500);
       } else {
         toast.error("Quote Rejected. We will contact you shortly.");
       }

@@ -32,23 +32,29 @@ async def add_csp_header(request, call_next):
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "img-src 'self' data: http://localhost:8000; "
         "font-src 'self' https://fonts.gstatic.com; "
-        "connect-src 'self' http://localhost:8000"
+        "connect-src 'self' http://localhost:8000 ws://localhost:8000"
     )
     return response
 
+@app.middleware("http")
+async def log_requests(request, call_next):
+    print(f"[DEBUG] Incoming Request Path: {request.method} {request.url.path}")
+    response = await call_next(request)
+    return response
+
 # 🔗 Connect the modular routes
-app.include_router(auth.router)
-app.include_router(users.router)
-app.include_router(orders.router)
-app.include_router(customers.router)
-app.include_router(products.router)
-app.include_router(invoices.router)
-app.include_router(quotes.router)
-app.include_router(challans.router)
-app.include_router(payments.router)
-app.include_router(admin.router)
-app.include_router(delivery.router)
-app.include_router(dashboard.router)
+app.include_router(auth.router,prefix="/api")
+app.include_router(users.router,prefix="/api")
+app.include_router(orders.router,prefix="/api")
+app.include_router(customers.router,prefix="/api")
+app.include_router(products.router,prefix="/api")
+app.include_router(invoices.router,prefix="/api")
+app.include_router(quotes.router,prefix="/api")
+app.include_router(challans.router,prefix="/api")
+app.include_router(payments.router,prefix="/api")
+app.include_router(admin.router,prefix="/api")
+app.include_router(delivery.router,prefix="/api")
+app.include_router(dashboard.router,prefix="/api")
 
 @app.get("/")
 def root():
@@ -57,4 +63,4 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "Active", "mode": "ORM"}
-
+

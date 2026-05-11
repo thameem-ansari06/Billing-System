@@ -4,8 +4,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
-
-const API = 'http://localhost:8000';
+import { API, BASE_URL } from '../../config';
 
 const fmt = (n) => parseFloat(n).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
@@ -206,7 +205,7 @@ export default function CartDrawer() {
                       <div className="w-16 h-16 rounded-lg overflow-hidden bg-slate-200 flex-shrink-0">
                         {item.image_url ? (
                           <img
-                            src={`${API}/${item.image_url}`}
+                            src={`${BASE_URL}/${item.image_url}`}
                             alt={item.name}
                             className="w-full h-full object-cover"
                             onError={e => { e.target.style.display = 'none'; }}

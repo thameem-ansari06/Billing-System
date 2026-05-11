@@ -137,6 +137,16 @@ export default function DriverDashboard() {
                   </Badge>
                 </div>
                 
+                {/* Driver Info if assigned */}
+                <div className="px-5 pt-4 flex items-center gap-2">
+                   <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400">
+                      {user?.username?.charAt(0).toUpperCase()}
+                   </div>
+                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                      Pilot: {user?.username}
+                   </p>
+                </div>
+                
                 {/* Card Content */}
                 <div className="p-5 space-y-5">
                   <div className="flex justify-between items-start">
@@ -188,6 +198,19 @@ export default function DriverDashboard() {
                 </div>
 
                 {/* Quick Action Navigation if in transit */}
+                {task.status === 'ASSIGNED' && (
+                  <div className="px-5 pb-5 pt-0">
+                    <Button 
+                      className="w-full bg-amber-500 hover:bg-amber-600 text-white font-black text-xs h-10 rounded-xl flex items-center justify-center gap-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/driver/task/${task.id}`);
+                      }}
+                    >
+                      <Package size={14} /> Mark Picked Up
+                    </Button>
+                  </div>
+                )}
                 {task.status === 'IN_TRANSIT' && (
                   <div className="px-5 pb-5 pt-0">
                     <Button 

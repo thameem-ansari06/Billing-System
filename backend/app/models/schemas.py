@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, ConfigDict
 from typing import Any, List, Optional, Dict
 from datetime import datetime
-from .enums import DeliveryStatus
+from .enums import DeliveryStatus, PaymentMethod, PaymentStatus
 
 # Common Configuration
 class ORMBase(BaseModel):
@@ -12,6 +12,12 @@ class UserCreate(ORMBase):
     username: str
     password: str
     role: Optional[str] = "user"
+    account_type: Optional[str] = None
+    company_name: Optional[str] = None
+    gst_no: Optional[str] = None
+    pan_no: Optional[str] = None
+    business_address: Optional[str] = None
+    document_url: Optional[str] = None
 
 class UserRead(ORMBase):
     id: Any
@@ -25,6 +31,13 @@ class UserRead(ORMBase):
     state: Optional[str] = None
     pincode: Optional[str] = None
     gstin: Optional[str] = None
+    account_type: Optional[str] = None
+    company_name: Optional[str] = None
+    gst_no: Optional[str] = None
+    pan_no: Optional[str] = None
+    business_address: Optional[str] = None
+    document_url: Optional[str] = None
+    wallet_balance: float = 0.0
     created_at: Optional[datetime] = None
 
 class UserUpdate(ORMBase):
@@ -46,6 +59,18 @@ class SignupRequest(ORMBase):
     full_name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    account_type: Optional[str] = "individual"
+    company_name: Optional[str] = None
+    gst_no: Optional[str] = None
+    pan_no: Optional[str] = None
+    business_address: Optional[str] = None
+
+class StaffCreate(ORMBase):
+    """Admin-only payload for adding internal staff."""
+    username: str
+    email: EmailStr
+    password: str
+    role: str
 
 class Token(BaseModel):
     access_token: str
@@ -61,6 +86,7 @@ class ProductModel(ORMBase):
     price: float
     description: Optional[str] = None
     image_url: Optional[str] = None
+    image_urls: List[str] = []
     gst_percentage: Optional[float] = 18.0
     stock_quantity: Optional[int] = 0
 
@@ -88,6 +114,7 @@ class OrderCreate(ORMBase):
     user_id: int
     total_amount: float
     status: Optional[str] = "Placed"
+    origin: Optional[str] = "standard"
 
 class InvoiceRef(ORMBase):
     """Minimal invoice reference embedded in OrderRead so the customer portal
@@ -184,9 +211,13 @@ class InvoiceCreate(ORMBase):
     sgst: float
     igst: float
     grand_total: float
+    customer_company_name: Optional[str] = None
+    customer_gst_no: Optional[str] = None
     amount_paid: float = 0.0
+    settled_amount: float = 0.0
     email: Optional[str] = ""
     status: str = "Draft"
+    payment_status: Optional[str] = "Unpaid" # Added for Partial Payment logic
     shipping_charges: float = 0.0
     adjustment: float = 0.0
     round_off: float = 0.0
@@ -226,6 +257,9 @@ class QuoteCreate(ORMBase):
     sgst: float
     igst: float
     grand_total: float
+    customer_company_name: Optional[str] = None
+    customer_gst_no: Optional[str] = None
+    email: Optional[str] = None
     status: str = "pending_approval"
     order_id: Optional[int] = None
     user_id: Optional[int] = None
@@ -274,8 +308,6 @@ class DeliveryChallanRead(DeliveryChallanCreate):
     created_at: datetime
     items: List[ChallanItemBase]
 
-
-
 # 6. Delivery Task Models
 class DeliveryTaskBase(ORMBase):
     invoice_id: Optional[Any] = None
@@ -284,8 +316,6 @@ class DeliveryTaskBase(ORMBase):
     customer_address: Optional[str] = None
     contact_number: Optional[str] = None
     status: Optional[DeliveryStatus] = DeliveryStatus.ASSIGNED
-    pickup_code: Optional[str] = None
-    otp_code: Optional[str] = None
     timestamp_logs: Optional[Dict[str, Any]] = None
     challan_url: Optional[str] = None
     signature_url: Optional[str] = None
@@ -300,9 +330,14 @@ class DeliveryTaskRead(DeliveryTaskBase):
     created_at: Optional[datetime] = None
     driver: Optional[UserRead] = None
 
+class DeliveryTaskAdminRead(DeliveryTaskRead):
+    pickup_otp: Optional[str] = None
+    delivery_otp: Optional[str] = None
+
 class DeliveryTaskUpdate(ORMBase):
     status: Optional[str] = None
     driver_id: Optional[int] = None
+
 # 7. Admin & Dashboard
 class DashboardStats(BaseModel):
     total_revenue: float
@@ -318,3 +353,65 @@ class ActivityLogRead(ORMBase):
     user_id: Optional[int] = None
     created_at: datetime
     user: Optional[UserRead] = None
+
+# 8. Payment & Advance Models
+class PaymentBase(ORMBase):
+    amount: float
+    invoice_number: Optional[str] = None
+    payment_method: PaymentMethod
+    transaction_id: Optional[str] = None
+
+class PaymentCreate(BaseModel):
+    invoice_number: str
+
+class PaymentVerify(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+    invoice_number: str
+
+class PaymentRead(PaymentBase):
+    id: int
+    status: PaymentStatus
+    is_overpayment: bool
+    payment_date: datetime
+    created_at: datetime
+    user: Optional[UserRead] = None
+    customer_name: Optional[str] = None
+
+class PaymentStats(BaseModel):
+    total_billed: float
+    total_received: float
+    total_pending: float
+    received_today: float
+    collection_velocity: float # % paid within 24h
+    trend_month_vs_last: float # % change
+    method_breakdown: Dict[str, float]
+
+class PaymentResponse(BaseModel):
+    message: str
+    payment_id: int
+    invoice_status: str
+    amount_to_invoice: float
+    surplus_to_wallet: float
+    new_wallet_balance: float
+    customer_name: Optional[str] = None
+    invoice_number: Optional[str] = None
+
+class PaymentRecordRequest(BaseModel):
+    invoice_id: int
+    amount: float
+    payment_method: PaymentMethod
+    transaction_id: Optional[str] = None
+    date: Optional[str] = None
+
+class AdvanceCreate(ORMBase):
+    customer_id: int
+    amount: float
+    payment_mode: str = "Cash"
+    date: Optional[str] = None
+
+class AdvanceRead(AdvanceCreate):
+    id: int
+    is_adjusted: bool = False
+    created_at: datetime

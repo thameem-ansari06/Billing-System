@@ -18,7 +18,9 @@ import CreateQuote from './components/CreateQuote';
 import DeliveryChallansTab from './components/DeliveryChallansTab';
 import CreateDeliveryChallan from './components/CreateDeliveryChallan';
 import PaymentsReceivedTab from './components/PaymentsReceivedTab';
+import AdvanceBillingTab from './components/AdvanceBillingTab'; // Add this import
 import AdminOrders from './components/AdminOrders';
+import StaffManagement from './components/StaffManagement';
 import Login from './components/Login';
 import Signup from './components/Signup';
 
@@ -30,6 +32,7 @@ import CartDrawer from './components/customer/CartDrawer';
 import CustomerOrders from './components/customer/CustomerOrders';
 import CustomerQuotes from './components/customer/CustomerQuotes';
 import CustomerInvoices from './components/customer/CustomerInvoices';
+import CustomerInvoiceView from './components/customer/CustomerInvoiceView';
 import DeliveryTasks from './components/DeliveryTasks';
 import DriverDashboard from './components/driver/DriverDashboard';
 import DriverTaskDetail from './components/driver/DriverTaskDetail';
@@ -129,12 +132,14 @@ function App() {
               <Route path="/customer/catalog"  element={<ProductCatalog />} />
               <Route path="/customer/quotes"   element={<CustomerQuotes />} />
               <Route path="/customer/invoices" element={<CustomerInvoices />} />
+              <Route path="/customer/invoices/:id" element={<CustomerInvoiceView />} />
               <Route path="/customer/orders"   element={<CustomerOrders />} />
               <Route path="/customer/profile"  element={<CustomerProfile />} />
 
               {/* Admin-only */}
               <Route path="/customers"            element={<CustomersTab />} />
               <Route path="/customers/new"        element={<CreateCustomer />} />
+              <Route path="/staff"                element={<StaffManagement />} />
               <Route path="/invoices"             element={<InvoicesTab />} />
               <Route path="/invoices/new"         element={<CreateInvoice />} />
               <Route path="/delivery-tasks"       element={<DeliveryTasks />} />
@@ -142,6 +147,7 @@ function App() {
               <Route path="/quotes/new"           element={<CreateQuote />} />
               <Route path="/delivery-challans"    element={<DeliveryChallansTab />} />
               <Route path="/delivery-challans/new" element={<CreateDeliveryChallan />} />
+              <Route path="/advance-billing" element={<AdvanceBillingTab />} />
               <Route path="/payments-received"    element={<PaymentsReceivedTab />} />
               <Route path="/inventory/new"        element={<CreateItem />} />
               <Route path="/admin/orders"         element={<AdminOrders />} />
