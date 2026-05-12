@@ -44,13 +44,13 @@ export default function CreateQuote() {
         const headers = { 'Authorization': `Bearer ${user.token}` };
         
         // Fetch Active Portal Users
-        const custRes = await fetch('http://localhost:8000/api/admin/customers/active', { headers });
+        const custRes = await fetch('https://billing-system-jk1c.onrender.com/api/admin/customers/active', { headers });
         if (custRes.status === 401) throw new Error("Unauthorized");
         const custData = await custRes.json();
         setCustomers(Array.isArray(custData) ? custData : []);
         
         // Fetch Products
-        const prodRes = await fetch('http://localhost:8000/api/products', { headers });
+        const prodRes = await fetch('https://billing-system-jk1c.onrender.com/api/products', { headers });
         const prodData = await prodRes.json();
         setProducts(prodData.products || []);
 
@@ -192,7 +192,7 @@ export default function CreateQuote() {
 
       console.log("Saving Quote Payload:", payload);
 
-      const response = await fetch('http://localhost:8000/api/quotes/', {
+      const response = await fetch('https://billing-system-jk1c.onrender.com/api/quotes/', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

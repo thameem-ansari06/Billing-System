@@ -18,7 +18,7 @@ export default function CustomerTracking() {
       // but for now we'll assume it's protected or handled via existing auth for simplicity
       // or we can use a non-auth endpoint if we implement it.
       // Let's assume standard auth for now since the user is likely logged in as 'customer'.
-      const res = await fetch(`http://localhost:8000/api/delivery-tasks/${taskId}`);
+      const res = await fetch(`https://billing-system-jk1c.onrender.com/api/delivery-tasks/${taskId}`);
       if (!res.ok) throw new Error("Tracking info not found");
       const data = await res.json();
       setTask(data);

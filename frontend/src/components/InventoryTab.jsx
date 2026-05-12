@@ -31,7 +31,7 @@ export default function InventoryTab() {
   const fetchProducts = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/products');
+      const res = await fetch('https://billing-system-jk1c.onrender.com/api/products');
       const data = await res.json();
       setProducts(data.products || []);
     } catch (err) {
@@ -77,7 +77,7 @@ export default function InventoryTab() {
          quantity: item.quantity
       }));
       
-      const response = await fetch('http://localhost:8000/api/orders/', {
+      const response = await fetch('https://billing-system-jk1c.onrender.com/api/orders/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -44,18 +44,18 @@ export default function CreateInvoice() {
         const headers = { 'Authorization': `Bearer ${user.token}` };
         
         // Fetch Active Portal Users
-        const custRes = await fetch('http://localhost:8000/api/admin/customers/active', { headers });
+        const custRes = await fetch('https://billing-system-jk1c.onrender.com/api/admin/customers/active', { headers });
         if (custRes.status === 401) throw new Error("Unauthorized");
         const custData = await custRes.json();
         setCustomers(Array.isArray(custData) ? custData : []);
         
         // Fetch Products
-        const prodRes = await fetch('http://localhost:8000/api/products', { headers });
+        const prodRes = await fetch('https://billing-system-jk1c.onrender.com/api/products', { headers });
         const prodData = await prodRes.json();
         setProducts(prodData.products || []);
 
         // Fetch Next Invoice Number
-        const invRes = await fetch('http://localhost:8000/api/invoices/next-number', { headers });
+        const invRes = await fetch('https://billing-system-jk1c.onrender.com/api/invoices/next-number', { headers });
         const invData = await invRes.json();
         if (invData.next_number) handleBaseChange('invoice_number', invData.next_number);
 
@@ -218,7 +218,7 @@ export default function CreateInvoice() {
 
       console.log("Saving Invoice Payload:", payload);
 
-      const response = await fetch('http://localhost:8000/api/invoices/', {
+      const response = await fetch('https://billing-system-jk1c.onrender.com/api/invoices/', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

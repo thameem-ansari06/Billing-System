@@ -50,7 +50,7 @@ export default function CreateItem() {
         data.append('images', file);
       });
 
-      const response = await fetch('http://localhost:8000/api/products/', {
+      const response = await fetch('https://billing-system-jk1c.onrender.com/api/products/', {
         method: 'POST',
         body: data
       });

@@ -21,7 +21,7 @@ export default function InvoicesTab() {
     if (!user?.token) return;
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/invoices/', {
+      const response = await fetch('https://billing-system-jk1c.onrender.com/api/invoices/', {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       if (response.ok) {
@@ -102,7 +102,7 @@ export default function InvoicesTab() {
 
     setIsDownloading(invoiceNumber);
     try {
-      const response = await fetch(`http://localhost:8000/api/invoices/generate/${encodeURIComponent(invoiceNumber)}/`, {
+      const response = await fetch(`https://billing-system-jk1c.onrender.com/api/invoices/generate/${encodeURIComponent(invoiceNumber)}/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${user.token}`
@@ -134,7 +134,7 @@ export default function InvoicesTab() {
     if (!user?.token) return;
     setIsSending(invoiceId);
     try {
-      const response = await fetch(`http://localhost:8000/api/invoices/${invoiceId}/send/`, {
+      const response = await fetch(`https://billing-system-jk1c.onrender.com/api/invoices/${invoiceId}/send/`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${user.token}` }
       });

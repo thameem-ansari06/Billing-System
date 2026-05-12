@@ -35,7 +35,7 @@ export default function CustomerInvoiceView() {
     try {
       // Decode the ID in case it contains slashes like INV/2026/001
       const invoiceNumber = decodeURIComponent(id);
-      const res = await fetch(`http://localhost:8000/api/invoices/invoices/${encodeURIComponent(invoiceNumber)}`, {
+      const res = await fetch(`https://billing-system-jk1c.onrender.com/api/invoices/invoices/${encodeURIComponent(invoiceNumber)}`, {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       if (res.ok) {
@@ -60,7 +60,7 @@ export default function CustomerInvoiceView() {
     setIsPaying(true);
     try {
       // 1. Create Order
-      const orderRes = await fetch('http://localhost:8000/api/payments/create-order', {
+      const orderRes = await fetch('https://billing-system-jk1c.onrender.com/api/payments/create-order', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -87,7 +87,7 @@ export default function CustomerInvoiceView() {
         handler: async function (response) {
           try {
             // 3. Verify Payment Signature on Backend
-            const verifyRes = await fetch('http://localhost:8000/api/payments/verify', {
+            const verifyRes = await fetch('https://billing-system-jk1c.onrender.com/api/payments/verify', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

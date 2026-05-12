@@ -17,7 +17,7 @@ export default function DeliveryChallansTab() {
   const fetchChallans = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/delivery-challans', {
+      const res = await fetch('https://billing-system-jk1c.onrender.com/api/delivery-challans', {
         headers: { 'Authorization': `Bearer ${user?.token}` }
       });
       const data = await res.json();
@@ -51,7 +51,7 @@ export default function DeliveryChallansTab() {
 
     setIsDownloading(num);
     try {
-      const res = await fetch(`http://localhost:8000/api/delivery-challans/pdf-view/${encodeURIComponent(num)}`, {
+      const res = await fetch(`https://billing-system-jk1c.onrender.com/api/delivery-challans/pdf-view/${encodeURIComponent(num)}`, {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       

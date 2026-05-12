@@ -33,7 +33,7 @@ export default function Sidebar({ isMobile = false, closeMenu = () => {} }) {
 
     const fetchCounts = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/quotes/notifications/count', {
+        const res = await fetch('https://billing-system-jk1c.onrender.com/api/quotes/notifications/count', {
           headers: { Authorization: `Bearer ${user.token}` }
         });
         if (res.ok) {
@@ -158,4 +158,4 @@ export default function Sidebar({ isMobile = false, closeMenu = () => {} }) {
       </nav>
     </div>
   );
-}
+}

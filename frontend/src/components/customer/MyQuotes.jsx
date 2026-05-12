@@ -15,7 +15,7 @@ export default function MyQuotes() {
   const fetchQuotes = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/quotes/user', {
+      const response = await fetch('https://billing-system-jk1c.onrender.com/api/quotes/user', {
         headers: {
           'Authorization': `Bearer ${user.token}`
         }
@@ -37,7 +37,7 @@ export default function MyQuotes() {
 
   const handleApprove = async (quoteId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/quotes/${quoteId}/approve`, {
+      const response = await fetch(`https://billing-system-jk1c.onrender.com/api/quotes/${quoteId}/approve`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${user.token}`

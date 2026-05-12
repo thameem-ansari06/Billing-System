@@ -69,7 +69,7 @@ export default function EditProductModal({ isOpen, onClose, product, onSuccess }
       // Send the list of remaining existing images
       data.append('remaining_images', JSON.stringify(existingImages));
 
-      const response = await fetch(`http://localhost:8000/api/products/${product.product_id}`, {
+      const response = await fetch(`https://billing-system-jk1c.onrender.com/api/products/${product.product_id}`, {
         method: 'PUT',
         body: data
       });

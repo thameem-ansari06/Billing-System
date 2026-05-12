@@ -16,7 +16,7 @@ export default function CustomerInvoices() {
     if (!user?.token) return;
     setIsLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/invoices/customer/', {
+      const res = await fetch('https://billing-system-jk1c.onrender.com/api/invoices/customer/', {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       const data = await res.json();
@@ -41,7 +41,7 @@ export default function CustomerInvoices() {
     }
 
     try {
-      const res = await fetch(`http://localhost:8000/api/invoices/customer/${invoiceId}/decision/?decision=${decision}&reason=${encodeURIComponent(rejectReason)}`, {
+      const res = await fetch(`https://billing-system-jk1c.onrender.com/api/invoices/customer/${invoiceId}/decision/?decision=${decision}&reason=${encodeURIComponent(rejectReason)}`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${user.token}` }
       });

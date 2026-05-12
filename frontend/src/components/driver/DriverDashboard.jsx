@@ -21,7 +21,7 @@ export default function DriverDashboard() {
     if (!user?.token) return;
     setIsLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/delivery-tasks/my-tasks', {
+      const res = await fetch('https://billing-system-jk1c.onrender.com/api/delivery-tasks/my-tasks', {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       const data = await res.json();

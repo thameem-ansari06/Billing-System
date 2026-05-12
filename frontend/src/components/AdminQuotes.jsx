@@ -22,7 +22,7 @@ export default function AdminQuotes() {
     if (!user?.token) return;
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/quotes/', {
+      const response = await fetch('https://billing-system-jk1c.onrender.com/api/quotes/', {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       if (response.ok) {

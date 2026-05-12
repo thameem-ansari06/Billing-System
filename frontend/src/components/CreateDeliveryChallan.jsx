@@ -41,20 +41,20 @@ export default function CreateDeliveryChallan() {
   const [adjustment, setAdjustment] = useState(0);
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/customers')
+    fetch('https://billing-system-jk1c.onrender.com/api/customers')
       .then(res => res.json())
       .then(data => setCustomers(data.customers || []));
     
-    fetch('http://localhost:8000/api/products')
+    fetch('https://billing-system-jk1c.onrender.com/api/products')
       .then(res => res.json())
       .then(data => setProducts(data.products || []));
 
-    fetch('http://localhost:8000/api/invoices')
+    fetch('https://billing-system-jk1c.onrender.com/api/invoices')
       .then(res => res.json())
       .then(data => setInvoices(data.invoices || []));
 
     // Fetch Next Challan Number
-    fetch('http://localhost:8000/api/delivery-challans/next-number')
+    fetch('https://billing-system-jk1c.onrender.com/api/delivery-challans/next-number')
       .then(res => res.json())
       .then(data => {
          if (data.next_number) handleBaseChange('challan_number', data.next_number);
@@ -63,7 +63,7 @@ export default function CreateDeliveryChallan() {
 
   const mirrorInvoice = async (invoiceNumber) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/invoices/${invoiceNumber}`);
+      const response = await fetch(`https://billing-system-jk1c.onrender.com/api/invoices/${invoiceNumber}`);
       if (!response.ok) return;
       const inv = await response.json();
       
@@ -189,7 +189,7 @@ export default function CreateDeliveryChallan() {
         items: items
       };
 
-      const response = await fetch('http://localhost:8000/api/delivery-challans/', {
+      const response = await fetch('https://billing-system-jk1c.onrender.com/api/delivery-challans/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

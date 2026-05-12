@@ -18,7 +18,7 @@ export default function QuotesTab() {
     if (!user?.token) return;
     setIsLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/quotes', {
+      const res = await fetch('https://billing-system-jk1c.onrender.com/api/quotes', {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       const data = await res.json();
@@ -42,7 +42,7 @@ export default function QuotesTab() {
 
     setIsApproving(quoteId);
     try {
-      const res = await fetch(`http://localhost:8000/api/quotes/${quoteId}/approve`, {
+      const res = await fetch(`https://billing-system-jk1c.onrender.com/api/quotes/${quoteId}/approve`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${user.token}` }
       });

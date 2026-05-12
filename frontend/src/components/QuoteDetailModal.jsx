@@ -39,7 +39,7 @@ export default function QuoteDetailModal({ quoteId, onClose, onStatusChange }) {
     const headers = { Authorization: `Bearer ${user.token}` };
     setIsLoading(true);
     setError(null);
-    fetch(`http://localhost:8000/api/quotes/${quoteId}/detail`, { headers })
+    fetch(`https://billing-system-jk1c.onrender.com/api/quotes/${quoteId}/detail`, { headers })
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status} — check backend logs`);
         return r.json();
@@ -53,7 +53,7 @@ export default function QuoteDetailModal({ quoteId, onClose, onStatusChange }) {
     const headers = { Authorization: `Bearer ${user.token}` };
     setIsGeneratingPdf(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/quotes/${quoteId}/pdf`, { headers });
+      const res = await fetch(`https://billing-system-jk1c.onrender.com/api/quotes/${quoteId}/pdf`, { headers });
       if (!res.ok) throw new Error('PDF generation failed — HTTP ' + res.status);
       const data = await res.json();
       if (data.file_url) {
@@ -74,7 +74,7 @@ export default function QuoteDetailModal({ quoteId, onClose, onStatusChange }) {
     setStatusUpdating(true);
     try {
       const res = await fetch(
-        `http://localhost:8000/api/quotes/${quoteId}/status?status=${newStatus}`,
+        `https://billing-system-jk1c.onrender.com/api/quotes/${quoteId}/status?status=${newStatus}`,
         { method: 'PUT', headers }
       );
       if (!res.ok) throw new Error('Status update failed — HTTP ' + res.status);

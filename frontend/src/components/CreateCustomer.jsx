@@ -56,7 +56,7 @@ export default function CreateCustomer() {
 
   const handleSaveCustomer = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/customers/', {
+      const response = await fetch('https://billing-system-jk1c.onrender.com/api/customers/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
