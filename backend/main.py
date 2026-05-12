@@ -25,15 +25,18 @@ app.add_middleware(
 @app.middleware("http")
 async def add_csp_header(request, call_next):
     response = await call_next(request)
-    # Set CSP header to allow eval and inline scripts for React development
-    response.headers["Content-Security-Policy"] = (
+    
+    # Combined and cleaned up CSP directives
+    csp_directives = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-        "img-src 'self' data: http://localhost:8000; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+        "img-src 'self' data: https://fastapi.tiangolo.com; "
         "font-src 'self' https://fonts.gstatic.com; "
-        "connect-src 'self' http://localhost:8000 ws://localhost:8000"
+        "connect-src 'self' https://billing-system-jk1c.onrender.com;"
     )
+    
+    response.headers["Content-Security-Policy"] = csp_directives
     return response
 
 @app.middleware("http")
