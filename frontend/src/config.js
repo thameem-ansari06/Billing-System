@@ -1,3 +1,4 @@
-export const BASE_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:8000';
-export const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-export const WS_API = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8000/api';
+// Palaiya fallback logic-ah thookittu, direct-ah Render link-ah podunga
+export const BASE_URL = 'https://billing-system-jk1c.onrender.com';
+export const API = 'https://billing-system-jk1c.onrender.com/api';
+export const WS_API = 'wss://billing-system-jk1c.onrender.com/api';
