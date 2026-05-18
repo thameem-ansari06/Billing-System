@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database.db import engine, Base, setup_db
-from app.routes import customers, products, invoices, quotes, challans, payments, auth, orders, admin, delivery, dashboard, users
+from app.routes import customers, products, invoices, quotes, challans, payments, auth, orders, delivery, dashboard, users
+from app.routes.admin import router as admin_router
 from app.models import orm # Import models to ensure they are registered
 from fastapi.staticfiles import StaticFiles
 import os
@@ -10,7 +11,8 @@ app = FastAPI(title="Enterprise AR Hub API")
 
 # Create static directories if they don't exist
 os.makedirs("static/uploads", exist_ok=True)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+os.makedirs("static/backups", exist_ok=True)
+app.mount("/api/static", StaticFiles(directory="static"), name="static")
 
 Base.metadata.create_all(bind=engine)
 setup_db()
@@ -31,9 +33,9 @@ async def add_csp_header(request, call_next):
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
-        "img-src 'self' data: https://fastapi.tiangolo.com; "
+        "img-src 'self' data: https: http:; "
         "font-src 'self' https://fonts.gstatic.com; "
-        "connect-src 'self' https://billing-system-jk1c.onrender.com;"
+        "connect-src 'self' http://localhost:8000 ws://localhost:8000;"
     )
     
     response.headers["Content-Security-Policy"] = csp_directives
@@ -55,7 +57,7 @@ app.include_router(invoices.router,prefix="/api")
 app.include_router(quotes.router,prefix="/api")
 app.include_router(challans.router,prefix="/api")
 app.include_router(payments.router,prefix="/api")
-app.include_router(admin.router,prefix="/api")
+app.include_router(admin_router,prefix="/api")
 app.include_router(delivery.router,prefix="/api")
 app.include_router(dashboard.router,prefix="/api")
 

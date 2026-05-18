@@ -21,6 +21,7 @@ import PaymentsReceivedTab from './components/PaymentsReceivedTab';
 import AdvanceBillingTab from './components/AdvanceBillingTab'; // Add this import
 import AdminOrders from './components/AdminOrders';
 import StaffManagement from './components/StaffManagement';
+import Settings from './components/Settings';
 import Login from './components/Login';
 import Signup from './components/Signup';
 
@@ -108,11 +109,10 @@ function App() {
             {/* Protected Layout */}
             <Route element={
               <ProtectedRoute>
-                <div className="flex h-screen bg-gray-50 font-sans relative">
-                  <Sidebar />
+                <div className="flex h-screen bg-slate-50 font-sans relative">
                   <div className="flex-1 flex flex-col overflow-hidden">
                     <TopHeader />
-                    <main className="flex-1 overflow-auto p-4 md:p-8 relative">
+                    <main className="flex-1 overflow-auto p-2 md:p-4 relative">
                       <Outlet />
                     </main>
                   </div>
@@ -139,6 +139,7 @@ function App() {
               {/* Admin-only */}
               <Route path="/customers"            element={<CustomersTab />} />
               <Route path="/customers/new"        element={<CreateCustomer />} />
+              <Route path="/customers/:id/edit"    element={<CreateCustomer />} />
               <Route path="/staff"                element={<StaffManagement />} />
               <Route path="/invoices"             element={<InvoicesTab />} />
               <Route path="/invoices/new"         element={<CreateInvoice />} />
@@ -151,6 +152,7 @@ function App() {
               <Route path="/payments-received"    element={<PaymentsReceivedTab />} />
               <Route path="/inventory/new"        element={<CreateItem />} />
               <Route path="/admin/orders"         element={<AdminOrders />} />
+              <Route path="/settings"             element={<Settings />} />
 
               {/* Driver-only */}
               <Route path="/driver/dashboard"     element={<DriverDashboard />} />

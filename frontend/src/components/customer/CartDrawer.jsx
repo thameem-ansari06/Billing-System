@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { API, BASE_URL } from '../../config';
+import { getCleanImageUrl } from '../../utils/imageUtils';
 
 const fmt = (n) => parseFloat(n).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
@@ -88,81 +89,81 @@ export default function CartDrawer() {
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-indigo-600 to-violet-600">
-          <div className="flex items-center gap-3 text-white">
-            <ShoppingBag size={22} />
-            <h2 className="text-lg font-bold tracking-tight">Your Cart</h2>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-gradient-to-r from-indigo-600 to-violet-600">
+          <div className="flex items-center gap-2 text-white">
+            <ShoppingBag size={18} />
+            <h2 className="text-sm font-bold tracking-tight">Your Cart</h2>
             {cartCount > 0 && (
-              <span className="bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+              <span className="bg-white/20 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                 {cartCount} item{cartCount > 1 ? 's' : ''}
               </span>
             )}
           </div>
           <button
             onClick={() => setIsOpen(false)}
-            className="p-2 rounded-full hover:bg-white/20 text-white transition-colors"
+            className="p-1.5 rounded-md hover:bg-white/20 text-white transition-colors"
           >
-            <X size={20} />
+            <X size={16} />
           </button>
         </div>
 
         {/* Items or Address Form */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
           {showAddressForm ? (
-            <div className="animate-in slide-in-from-right duration-300 space-y-5 px-2">
+            <div className="animate-in slide-in-from-right duration-300 space-y-3 px-1">
               <div className="flex items-center justify-between">
-                <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs flex items-center gap-2">
-                  <MapPin size={14} className="text-indigo-500" /> Shipping Details
+                <h3 className="font-bold text-slate-800 uppercase tracking-widest text-[10px] flex items-center gap-1.5">
+                  <MapPin size={12} className="text-indigo-500" /> Shipping Details
                 </h3>
-                <button onClick={() => setShowAddressForm(false)} className="text-xs font-bold text-indigo-600 hover:underline">
+                <button onClick={() => setShowAddressForm(false)} className="text-[10px] font-bold text-indigo-600 hover:underline">
                   Back to Cart
                 </button>
               </div>
               
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Address Line</label>
+              <div className="space-y-3">
+                <div className="space-y-0.5">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Address Line</label>
                   <input 
-                    className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                     placeholder="Street, Apartment, Suite..."
                     value={address.address_line}
                     onChange={e => setAddress({...address, address_line: e.target.value})}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">City</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-0.5">
+                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">City</label>
                     <input 
-                      className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                      className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                       placeholder="City"
                       value={address.city}
                       onChange={e => setAddress({...address, city: e.target.value})}
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">State</label>
+                  <div className="space-y-0.5">
+                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">State</label>
                     <input 
-                      className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                      className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                       placeholder="State"
                       value={address.state}
                       onChange={e => setAddress({...address, state: e.target.value})}
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Pincode</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-0.5">
+                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Pincode</label>
                     <input 
-                      className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                      className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                       placeholder="600001"
                       value={address.pincode}
                       onChange={e => setAddress({...address, pincode: e.target.value})}
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">GSTIN (Optional)</label>
+                  <div className="space-y-0.5">
+                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">GSTIN (Optional)</label>
                     <input 
-                      className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
+                      className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
                       placeholder="29AAAAA0000A1Z5"
                       value={address.gstin}
                       onChange={e => setAddress({...address, gstin: e.target.value})}
@@ -170,9 +171,9 @@ export default function CartDrawer() {
                   </div>
                 </div>
               </div>
-              <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100 flex gap-3">
-                <div className="p-2 bg-white rounded-lg text-indigo-600 h-fit shadow-sm"><UserCheck size={16}/></div>
-                <p className="text-xs text-indigo-700 leading-relaxed font-medium">
+              <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-100 flex gap-2">
+                <div className="p-1.5 bg-white rounded-md text-indigo-600 h-fit shadow-sm"><UserCheck size={14}/></div>
+                <p className="text-[10px] text-indigo-700 leading-relaxed font-bold">
                   We'll save these details to your profile so your next checkout is even faster!
                 </p>
               </div>
@@ -199,59 +200,59 @@ export default function CartDrawer() {
                 const total  = (item.price + gstAmt) * item.quantity;
 
                 return (
-                  <div key={item.id} className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                    <div className="flex gap-3">
+                  <div key={item.id} className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                    <div className="flex gap-2">
                       {/* Image */}
-                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-slate-200 flex-shrink-0">
+                      <div className="w-12 h-12 rounded-md overflow-hidden bg-slate-200 flex-shrink-0">
                         {item.image_url ? (
                           <img
-                            src={`${BASE_URL}/${item.image_url}`}
+                            src={getCleanImageUrl(item.image_url)}
                             alt={item.name}
                             className="w-full h-full object-cover"
                             onError={e => { e.target.style.display = 'none'; }}
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-slate-400">
-                            <ShoppingBag size={24} />
+                            <ShoppingBag size={16} />
                           </div>
                         )}
                       </div>
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-slate-800 truncate">{item.name}</p>
-                        <p className="text-xs text-slate-500 mt-0.5">
+                        <p className="font-bold text-slate-800 text-xs truncate">{item.name}</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">
                           ₹{fmt(item.price)} + {gst}% GST = <span className="font-bold text-slate-700">₹{fmt(item.price + gstAmt)}</span>
                         </p>
 
                         {/* Qty Controls */}
-                        <div className="flex items-center gap-2 mt-2">
+                        <div className="flex items-center gap-1.5 mt-1.5">
                           <button
                             onClick={() => updateQty(item.id, item.quantity - 1)}
-                            className="w-7 h-7 rounded-md bg-white border border-slate-200 flex items-center justify-center hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
+                            className="w-6 h-6 rounded border border-slate-200 flex items-center justify-center hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
                           >
-                            <Minus size={12} />
+                            <Minus size={10} />
                           </button>
-                          <span className="w-6 text-center font-bold text-sm">{item.quantity}</span>
+                          <span className="w-5 text-center font-bold text-[10px]">{item.quantity}</span>
                           <button
                             onClick={() => updateQty(item.id, item.quantity + 1)}
-                            className="w-7 h-7 rounded-md bg-white border border-slate-200 flex items-center justify-center hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
+                            className="w-6 h-6 rounded border border-slate-200 flex items-center justify-center hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
                           >
-                            <Plus size={12} />
+                            <Plus size={10} />
                           </button>
 
                           <button
                             onClick={() => removeFromCart(item.id)}
-                            className="ml-auto p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                            className="ml-auto p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={12} />
                           </button>
                         </div>
                       </div>
 
                       {/* Line total */}
                       <div className="text-right flex-shrink-0">
-                        <p className="font-black text-slate-800">₹{fmt(total)}</p>
+                        <p className="font-bold text-slate-800 text-xs">₹{fmt(total)}</p>
                       </div>
                     </div>
                   </div>
@@ -263,9 +264,9 @@ export default function CartDrawer() {
 
         {/* Footer – GST Summary + Checkout */}
         {cartItems.length > 0 && (
-          <div className="border-t border-slate-100 px-6 py-5 space-y-4 bg-white">
+          <div className="border-t border-slate-100 px-4 py-3 space-y-3 bg-white">
             {/* Breakdown */}
-            <div className="space-y-1.5 text-sm">
+            <div className="space-y-1 text-xs">
               {(() => {
                 const base    = cartItems.reduce((s, i) => s + i.price * i.quantity, 0);
                 const gstAmt  = cartTotal - base;
@@ -279,7 +280,7 @@ export default function CartDrawer() {
                       <span>GST (avg.)</span>
                       <span>₹{fmt(gstAmt)}</span>
                     </div>
-                    <div className="flex justify-between font-black text-slate-900 text-base pt-1 border-t border-slate-100">
+                    <div className="flex justify-between font-bold text-slate-900 text-sm pt-1 border-t border-slate-100">
                       <span>Grand Total</span>
                       <span>₹{fmt(cartTotal)}</span>
                     </div>
@@ -291,9 +292,9 @@ export default function CartDrawer() {
             <button
               onClick={handleCheckout}
               disabled={placing}
-              className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/30 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold rounded-lg shadow-sm transition-all disabled:opacity-60 flex items-center justify-center gap-1.5 text-xs"
             >
-              {placing ? <><Loader2 size={18} className="animate-spin" /> Placing Order…</> : 'Place Order →'}
+              {placing ? <><Loader2 size={14} className="animate-spin" /> Placing…</> : 'Place Order →'}
             </button>
           </div>
         )}

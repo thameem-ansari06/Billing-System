@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import { API } from '../../config';
 
 export default function DriverDashboard() {
   const [tasks, setTasks] = useState([]);
@@ -21,7 +22,7 @@ export default function DriverDashboard() {
     if (!user?.token) return;
     setIsLoading(true);
     try {
-      const res = await fetch('https://billing-system-jk1c.onrender.com/api/delivery-tasks/my-tasks', {
+      const res = await fetch(`${API}/delivery-tasks/my-tasks`, {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       const data = await res.json();

@@ -98,50 +98,50 @@ export default function CustomerQuotes() {
   };
 
   return (
-    <div className="animate-in fade-in duration-500 space-y-6">
+    <div className="animate-in fade-in duration-500 space-y-4">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-black text-slate-800 tracking-tight">Proforma Invoices & Quotes</h1>
-        <p className="text-sm text-slate-500 font-medium tracking-wide">Review official price proposals and confirm your order placement.</p>
+        <h1 className="text-lg font-bold text-slate-800 tracking-tight">Proforma Invoices & Quotes</h1>
+        <p className="text-[10px] text-slate-500 font-bold tracking-wide">Review official price proposals and confirm your order placement.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 gap-3">
         {quotes.length === 0 && !isLoading ? (
-          <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center">
-            <FileText size={48} className="mx-auto mb-4 text-slate-200" />
-            <p className="font-bold text-slate-600 text-lg">Your Quote Inbox is Empty</p>
-            <p className="text-sm text-slate-400 mt-1 max-w-sm mx-auto">Once the admin processes your order and calculates tax, you'll find the detailed breakdown here.</p>
+          <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl p-8 text-center">
+            <FileText size={32} className="mx-auto mb-2 text-slate-200" />
+            <p className="font-bold text-slate-600 text-sm">Your Quote Inbox is Empty</p>
+            <p className="text-[10px] font-bold text-slate-400 mt-1 max-w-sm mx-auto">Once the admin processes your order and calculates tax, you'll find the detailed breakdown here.</p>
           </div>
         ) : (
           quotes.map((quote) => (
             <div 
               key={quote.id} 
               onClick={() => openDetails(quote)}
-              className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-xl hover:border-indigo-200 transition-all group cursor-pointer"
+              className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all group cursor-pointer"
             >
-              <div className="flex flex-col md:flex-row justify-between gap-6">
-                <div className="flex-1 space-y-4">
+              <div className="flex flex-col md:flex-row justify-between gap-4">
+                <div className="flex-1 space-y-3">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl transition-transform group-hover:scale-110">
-                      <FileText size={24} />
+                    <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg transition-transform group-hover:scale-110">
+                      <FileText size={18} />
                     </div>
                     <div>
-                      <h3 className="font-black text-slate-800 text-lg leading-tight">{quote.quote_number}</h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ref: {quote.reference_number || 'N/A'}</span>
+                      <h3 className="font-bold text-slate-800 text-sm leading-tight">{quote.quote_number}</h3>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Ref: {quote.reference_number || 'N/A'}</span>
                         <span className="text-slate-300">•</span>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{quote.quote_date}</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{quote.quote_date}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 pt-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2">
                      <div className="space-y-1">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Items Count</span>
-                        <p className="text-sm font-bold text-slate-700">{quote.items?.length || 0} Products</p>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Items Count</span>
+                        <p className="text-xs font-bold text-slate-700">{quote.items?.length || 0} Products</p>
                      </div>
                      <div className="space-y-1">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Grand Total (Incl Tax)</span>
-                        <p className="text-sm font-black text-indigo-600 text-lg">₹{quote.grand_total?.toLocaleString('en-IN')}</p>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Grand Total (Incl Tax)</span>
+                        <p className="text-sm font-bold text-indigo-600">₹{quote.grand_total?.toLocaleString('en-IN')}</p>
                      </div>
                      <div className="space-y-1 flex flex-col items-start sm:items-end">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Approval Status</span>
@@ -158,45 +158,45 @@ export default function CustomerQuotes() {
       {/* Detail Modal */}
       {isModalOpen && selectedQuote && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 transition-all duration-300 overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300 my-auto">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300 my-auto">
              {/* Modal Header */}
-             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+             <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                 <div className="flex items-center gap-3">
                    <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
-                      <Tag size={20} />
+                      <Tag size={16} />
                    </div>
                    <div>
-                      <h2 className="text-xl font-black text-slate-800 leading-none">{selectedQuote.quote_number}</h2>
-                      <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Detailed Proposal Breakdown</p>
+                      <h2 className="text-sm font-bold text-slate-800 leading-none">{selectedQuote.quote_number}</h2>
+                      <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Detailed Proposal Breakdown</p>
                    </div>
                 </div>
-                <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full text-slate-400 transition-colors">
-                   <X size={20} />
+                <button onClick={() => setIsModalOpen(false)} className="p-1.5 hover:bg-slate-200 rounded-full text-slate-400 transition-colors">
+                   <X size={16} />
                 </button>
              </div>
 
              {/* Modal Body */}
-             <div className="p-8 space-y-8">
+             <div className="p-4 space-y-4">
                 {/* Items Table */}
-                <div className="space-y-4">
-                   <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                      <Info size={14} /> Itemized Summary
+                <div className="space-y-2">
+                   <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <Info size={12} /> Itemized Summary
                    </h3>
-                   <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
-                      <table className="w-full text-sm text-left">
+                   <div className="bg-slate-50 rounded-lg border border-slate-100 overflow-hidden">
+                      <table className="w-full text-xs text-left">
                          <thead className="bg-slate-100 text-slate-500 font-bold">
                             <tr>
-                               <th className="p-4">Item Details</th>
-                               <th className="p-4 text-center">Qty</th>
-                               <th className="p-4 text-right">Amount</th>
+                               <th className="p-3">Item Details</th>
+                               <th className="p-3 text-center">Qty</th>
+                               <th className="p-3 text-right">Amount</th>
                             </tr>
                          </thead>
                          <tbody className="divide-y divide-slate-200">
                             {selectedQuote.items?.map((item, idx) => (
                                <tr key={idx} className="hover:bg-white/50 transition-colors">
-                                  <td className="p-4 font-bold text-slate-700">{item.item_details}</td>
-                                  <td className="p-4 text-center font-medium text-slate-500">{item.quantity}</td>
-                                  <td className="p-4 text-right font-bold text-slate-800">₹{item.amount?.toLocaleString('en-IN')}</td>
+                                  <td className="p-3 font-bold text-slate-700">{item.item_details}</td>
+                                  <td className="p-3 text-center font-medium text-slate-500">{item.quantity}</td>
+                                  <td className="p-3 text-right font-bold text-slate-800">₹{item.amount?.toLocaleString('en-IN')}</td>
                                </tr>
                             ))}
                          </tbody>
@@ -205,64 +205,64 @@ export default function CustomerQuotes() {
                 </div>
 
                 {/* Pricing Summary */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 border-t border-slate-100">
-                   <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs uppercase tracking-widest">
-                         <ShieldCheck size={14} /> Compliance Check
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-slate-100">
+                   <div className="space-y-2">
+                      <div className="flex items-center gap-1.5 text-emerald-600 font-bold text-[10px] uppercase tracking-widest">
+                         <ShieldCheck size={12} /> Compliance Check
                       </div>
-                      <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                      <p className="text-[10px] text-slate-400 leading-relaxed font-bold">
                          Prices are fixed as per order date. GST components (CGST/SGST/IGST) are calculated based on your place of supply. This is a legally valid proforma invoice.
                       </p>
                    </div>
-                   <div className="bg-indigo-50 rounded-2xl p-6 space-y-3">
-                      <div className="flex justify-between text-sm font-bold text-slate-500">
+                   <div className="bg-indigo-50 rounded-xl p-4 space-y-2">
+                      <div className="flex justify-between text-xs font-bold text-slate-500">
                          <span>Subtotal</span>
                          <span>₹{selectedQuote.subtotal?.toLocaleString('en-IN')}</span>
                       </div>
-                      <div className="flex justify-between text-sm font-bold text-slate-500">
+                      <div className="flex justify-between text-xs font-bold text-slate-500">
                          <span>Total GST</span>
                          <span>₹{(selectedQuote.cgst + selectedQuote.sgst + selectedQuote.igst)?.toLocaleString('en-IN')}</span>
                       </div>
-                      <div className="pt-3 border-t border-indigo-200 flex justify-between items-end">
-                         <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">Grand Total</span>
-                         <span className="text-2xl font-black text-indigo-700 leading-none">₹{selectedQuote.grand_total?.toLocaleString('en-IN')}</span>
+                      <div className="pt-2 border-t border-indigo-200 flex justify-between items-end">
+                         <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Grand Total</span>
+                         <span className="text-lg font-bold text-indigo-700 leading-none">₹{selectedQuote.grand_total?.toLocaleString('en-IN')}</span>
                       </div>
                    </div>
                 </div>
              </div>
 
              {/* Modal Footer */}
-             <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-4">
+             <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-3">
                 {['pending_approval', 'sent', 'ready'].includes(selectedQuote.status?.toLowerCase()) ? (
                   <>
                     <Button 
                       onClick={() => handleUpdateStatus(selectedQuote.id, 'rejected')}
                       variant="outline"
-                      className="flex-1 h-12 rounded-xl border-red-200 text-red-500 font-bold hover:bg-red-50 transition-all"
+                      className="flex-1 h-10 rounded-lg border-red-200 text-red-500 font-bold hover:bg-red-50 transition-all text-xs"
                     >
-                      <XCircle size={18} className="mr-2" /> Reject Quote
+                      <XCircle size={14} className="mr-1.5" /> Reject
                     </Button>
                     <Button 
                       onClick={() => handleUpdateStatus(selectedQuote.id, 'approved')}
-                      className="flex-[2] h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-100 transition-all active:scale-95"
+                      className="flex-[2] h-10 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-sm transition-all active:scale-95 text-xs"
                     >
-                      <CheckCircle size={18} className="mr-2" /> Approve & Confirm Order
+                      <CheckCircle size={14} className="mr-1.5" /> Approve & Confirm
                     </Button>
                   </>
                 ) : (
                   <div className="w-full flex flex-col items-center gap-2">
                      {selectedQuote.status?.toLowerCase() === 'approved' ? (
-                       <div className="w-full p-3 rounded-xl text-center font-bold text-sm bg-emerald-50 text-emerald-600 border border-emerald-100">
+                       <div className="w-full p-2 rounded-lg text-center font-bold text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-100">
                           This quote has been approved by you. We are preparing your shipment!
                        </div>
                      ) : (
-                       <div className="w-full p-3 rounded-xl text-center font-bold text-sm bg-red-50 text-red-600 border border-red-100">
+                       <div className="w-full p-2 rounded-lg text-center font-bold text-[10px] bg-red-50 text-red-600 border border-red-100">
                           This quote was rejected. Please contact support for a revised proposal.
                        </div>
                      )}
                      <Button 
                         onClick={() => setIsModalOpen(false)}
-                        className="w-full h-12 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold"
+                        className="w-full h-10 rounded-lg bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs"
                      >
                         Close View
                      </Button>

@@ -1,13 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, ExternalLink, PlusCircle, Trash2 } from 'lucide-react';
+import { 
+  ChevronLeft, ExternalLink, PlusCircle, Trash2, Save, 
+  Send, X, Building2, User, CreditCard, Calendar, 
+  MapPin, Zap, RefreshCw, Calculator, FileText,
+  Plus
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useAuth } from '../context/AuthContext';
+import { API } from '../config';
+import { toast } from 'react-hot-toast';
+import { cn } from "@/lib/utils";
 
 export default function CreateInvoice() {
   const navigate = useNavigate();
@@ -18,7 +34,6 @@ export default function CreateInvoice() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Base state
   const [formData, setFormData] = useState({
     user_id: '',
     order_id: null,
@@ -31,7 +46,6 @@ export default function CreateInvoice() {
     email: '',
   });
 
-  // Items table state
   const [items, setItems] = useState([
     { id: 1, item_details: '', quantity: 1, rate: 0, discount_amount: 0, discount_type: 'amount', tax_type: 'GST18', amount: 0 }
   ]);
@@ -42,28 +56,24 @@ export default function CreateInvoice() {
       setError(null);
       try {
         const headers = { 'Authorization': `Bearer ${user.token}` };
-        
-        // Fetch Active Portal Users
-        const custRes = await fetch('https://billing-system-jk1c.onrender.com/api/admin/customers/active', { headers });
+        const custRes = await fetch(`${API}/admin/customers/active`, { headers });
         if (custRes.status === 401) throw new Error("Unauthorized");
         const custData = await custRes.json();
         setCustomers(Array.isArray(custData) ? custData : []);
         
-        // Fetch Products
-        const prodRes = await fetch('https://billing-system-jk1c.onrender.com/api/products', { headers });
+        const prodRes = await fetch(`${API}/products`, { headers });
         const prodData = await prodRes.json();
         setProducts(prodData.products || []);
 
-        // Fetch Next Invoice Number
-        const invRes = await fetch('https://billing-system-jk1c.onrender.com/api/invoices/next-number', { headers });
+        const invRes = await fetch(`${API}/invoices/next-number`, { headers });
         const invData = await invRes.json();
         if (invData.next_number) handleBaseChange('invoice_number', invData.next_number);
 
       } catch (err) {
         console.error("Fetch Error:", err);
-        setError(err.message === "Unauthorized" ? "Session expired. Please login again." : "Failed to load data.");
+        setError(err.message === "Unauthorized" ? "Session expired." : "Failed to load data.");
         if (err.message === "Unauthorized") {
-          toast.error("Session expired. Redirecting...");
+          toast.error("Session expired.");
           setTimeout(() => navigate('/login'), 2000);
         }
       } finally {
@@ -73,7 +83,6 @@ export default function CreateInvoice() {
 
     if (user?.token) fetchData();
 
-    // Handle Incoming Order Data
     if (location.state?.order) {
       const order = location.state.order;
       setFormData(prev => ({
@@ -99,19 +108,6 @@ export default function CreateInvoice() {
     }
   }, [location.state, user]);
 
-  const formatAddress = (c) => {
-    return [
-      c.shipping_attention,
-      c.shipping_address_1,
-      c.shipping_address_2,
-      c.shipping_city,
-      c.shipping_state,
-      c.shipping_pincode,
-      c.shipping_country
-    ].filter(Boolean).join(', ');
-  };
-
-
   const handleBaseChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
   };
@@ -119,27 +115,19 @@ export default function CreateInvoice() {
   const handleItemChange = (index, field, value) => {
     const updatedItems = [...items];
     const item = { ...updatedItems[index], [field]: value };
-
-    // Auto-fill rate if product is selected
     if (field === 'item_details') {
       const selectedProduct = products.find(p => p.name === value);
-      if (selectedProduct) {
-        item.rate = selectedProduct.price;
-      }
+      if (selectedProduct) item.rate = selectedProduct.price;
     }
-
-    // Calculate row amount
     let qty = parseFloat(item.quantity) || 0;
     let rate = parseFloat(item.rate) || 0;
     let discount = parseFloat(item.discount_amount) || 0;
-    
     let amountBeforeTax = qty * rate;
     if (item.discount_type === 'percentage') {
       amountBeforeTax -= amountBeforeTax * (discount / 100);
     } else {
-       amountBeforeTax -= discount;
+      amountBeforeTax -= discount;
     }
-    
     item.amount = Math.max(0, amountBeforeTax);
     updatedItems[index] = item;
     setItems(updatedItems);
@@ -154,25 +142,19 @@ export default function CreateInvoice() {
 
   const removeItemRow = (index) => {
     if (items.length > 1) {
-      const updatedItems = items.filter((_, i) => i !== index);
-      setItems(updatedItems);
+      setItems(items.filter((_, i) => i !== index));
     }
   };
 
-  // Calculations
   const calculateTotals = () => {
     let subtotal = 0;
     let totalTaxAmount = 0;
-
     items.forEach(item => {
       subtotal += item.amount;
       const taxRate = item.tax_type === 'GST12' ? 0.12 : 0.18;
       totalTaxAmount += item.amount * taxRate;
     });
-
     let cgst = 0, sgst = 0, igst = 0;
-    
-    // B2B Smart Invoicing: Force 18% split if enterprise
     const selectedCust = customers.find(c => c.id === formData.user_id);
     if (selectedCust?.account_type === 'enterprise') {
       cgst = totalTaxAmount / 2;
@@ -185,9 +167,7 @@ export default function CreateInvoice() {
         igst = totalTaxAmount;
       }
     }
-
     const grand_total = subtotal + cgst + sgst + igst;
-
     return { subtotal, cgst, sgst, igst, grand_total };
   };
 
@@ -195,7 +175,6 @@ export default function CreateInvoice() {
 
   const handleSave = async (status = "Draft") => {
     try {
-      // Clean and Validate Items
       const cleanedItems = items.map(item => ({
         item_details: item.item_details,
         quantity: parseFloat(item.quantity) || 0,
@@ -205,20 +184,15 @@ export default function CreateInvoice() {
         tax_type: item.tax_type,
         amount: parseFloat(item.amount) || 0
       }));
-
       const payload = {
         ...formData,
         ...totals,
         status,
         items: cleanedItems,
-        // Ensure IDs are integers or null
         user_id: formData.user_id ? parseInt(formData.user_id) : null,
         order_id: formData.order_id ? parseInt(formData.order_id) : null
       };
-
-      console.log("Saving Invoice Payload:", payload);
-
-      const response = await fetch('https://billing-system-jk1c.onrender.com/api/invoices/', {
+      const response = await fetch(`${API}/invoices/`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -227,251 +201,308 @@ export default function CreateInvoice() {
         body: JSON.stringify(payload)
       });
       if (response.ok) {
+        toast.success(`Invoice ${status === 'Draft' ? 'saved as draft' : 'finalized'}!`);
         navigate('/invoices');
       } else {
         const err = await response.json();
-        alert('Failed to save invoice: ' + JSON.stringify(err));
+        toast.error('Failed to save: ' + err.detail);
       }
     } catch (error) {
-      console.error(error);
-      alert('Error saving invoice');
+      toast.error('Network Error');
     }
   };
 
+  if (loading) {
+    return (
+      <div className="h-[80vh] flex flex-col items-center justify-center gap-4 animate-pulse">
+        <RefreshCw size={64} className="animate-spin text-indigo-500 opacity-30" />
+        <p className="font-black text-xs uppercase tracking-widest text-slate-400">Loading Billing Engine...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-white text-slate-900 rounded-xl shadow-sm border border-slate-200 w-full max-w-7xl mx-auto my-6">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-7xl mx-auto pb-24 px-4">
       
-      {/* HEADER */}
-      <header className="bg-slate-50/50 border-b border-slate-200 px-6 lg:px-10 py-5 flex items-center justify-between rounded-t-xl">
+      {/* Header Navigation */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/invoices')} className="p-2 hover:bg-slate-100 rounded-full transition-all text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <ChevronLeft size={24} />
-          </button>
-          <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-slate-800">New Invoice</h1>
-          {formData.order_id && (
-            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100 font-bold px-3 py-1 animate-pulse">
-              Generated from Order #{formData.order_id}
-            </Badge>
-          )}
-          <button className="text-blue-600 text-sm font-semibold ml-4 hover:underline flex items-center gap-2">
-            Fetch Details From GSTN <ExternalLink size={16} />
-          </button>
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={() => navigate('/invoices')}
+            className="rounded-lg h-8 w-8 border-slate-200 hover:bg-slate-50 shadow-sm"
+          >
+            <ChevronLeft size={16} className="text-slate-600" />
+          </Button>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-slate-800">New Financial Invoice</h1>
+            <div className="flex items-center gap-2 mt-0.5">
+              <Badge variant="outline" className="rounded-md font-bold text-[10px] uppercase tracking-widest bg-slate-50">
+                 System Managed Registry
+              </Badge>
+              {formData.order_id && (
+                <Badge className="bg-emerald-600 text-white border-none text-[10px] px-2 py-0 font-bold">
+                  Derived from Order #{formData.order_id}
+                </Badge>
+              )}
+            </div>
+          </div>
         </div>
-      </header>
-
-      {/* FORM CONTENT */}
-      <div className="p-6 lg:p-10 space-y-10">
-        
-        {/* Base Info */}
-        <section className="space-y-6 max-w-4xl">
-          <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-12 md:col-span-3 text-sm font-bold text-[#ef4444]">Customer Name *</Label>
-            <div className="col-span-12 md:col-span-6">
-              <Select 
-                value={formData.user_id?.toString()}
-                onValueChange={(v) => {
-                  const selectedCust = customers.find(c => c.id.toString() === v);
-                  if (selectedCust) {
-                    setFormData({
-                      ...formData,
-                      user_id: selectedCust.id,
-                      customer_name: selectedCust.full_name || selectedCust.email,
-                      email: selectedCust.email || '',
-                      customer_company_name: selectedCust.company_name,
-                      customer_gst_no: selectedCust.gst_no,
-                      account_type: selectedCust.account_type,
-                    });
-                  }
-                }}
-              >
-                <SelectTrigger className="h-11 border-slate-200 focus:ring-1 focus:ring-blue-400">
-                  <SelectValue placeholder="Select a Customer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {error && <div className="p-2 text-xs text-red-500 font-bold">{error}</div>}
-                  {Array.isArray(customers) && customers.map((c) => (
-                    <SelectItem key={c.id} value={c.id.toString()}>
-                      {c.full_name || 'Unnamed User'} ({c.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-12 md:col-span-3 text-sm font-bold text-[#ef4444]">Invoice# *</Label>
-            <Input className="col-span-12 md:col-span-6 h-11 border-slate-200" value={formData.invoice_number} onChange={e => handleBaseChange('invoice_number', e.target.value)} />
-          </div>
-
-          <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-700">Reference#</Label>
-            <Input className="col-span-12 md:col-span-6 h-11 border-slate-200" value={formData.reference_number} onChange={e => handleBaseChange('reference_number', e.target.value)} />
-          </div>
-
-          <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-12 md:col-span-3 text-sm font-bold text-[#ef4444]">Invoice Date *</Label>
-            <Input type="date" className="col-span-12 md:col-span-3 h-11 border-slate-200" value={formData.invoice_date} onChange={e => handleBaseChange('invoice_date', e.target.value)} />
-          </div>
-
-          <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-700">Due Date</Label>
-            <Input type="date" className="col-span-12 md:col-span-3 h-11 border-slate-200" value={formData.due_date} onChange={e => handleBaseChange('due_date', e.target.value)} />
-          </div>
-
-          <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-700">Place of Supply</Label>
-            <div className="col-span-12 md:col-span-6">
-              <Select value={formData.place_of_supply} onValueChange={(v) => handleBaseChange('place_of_supply', v)}>
-                <SelectTrigger className="h-11 border-slate-200">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Tamil Nadu">Tamil Nadu</SelectItem>
-                  <SelectItem value="Maharashtra">Maharashtra</SelectItem>
-                  <SelectItem value="Delhi">Delhi</SelectItem>
-                  <SelectItem value="Karnataka">Karnataka</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <span className="col-span-12 md:col-span-3 text-xs text-slate-400">Used to compute CGST/SGST vs IGST</span>
-          </div>
-
-          {formData.account_type === 'enterprise' && (
-            <div className="p-5 bg-blue-50/50 border border-blue-100 rounded-xl space-y-3 animate-in fade-in zoom-in duration-300">
-              <div className="flex items-center gap-2 text-blue-700 font-bold text-sm uppercase tracking-wider">
-                <Zap size={14} /> B2B Smart Invoicing Active
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-[10px] uppercase font-bold text-slate-400">Company Name</Label>
-                  <p className="font-bold text-slate-700">{formData.customer_company_name}</p>
-                </div>
-                <div>
-                  <Label className="text-[10px] uppercase font-bold text-slate-400">GSTIN</Label>
-                  <p className="font-bold text-slate-700">{formData.customer_gst_no}</p>
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* Items Table */}
-        <section className="pt-4 border-t border-slate-200">
-          <div className="bg-slate-50 border border-slate-200 rounded-lg overflow-x-auto overflow-y-visible">
-            <table className="w-full text-left whitespace-nowrap">
-              <thead className="border-b border-slate-200">
-                <tr className="text-xs uppercase text-slate-500 font-bold bg-white">
-                  <th className="p-3 w-4/12 min-w-[200px] text-[#ef4444]">Item Details *</th>
-                  <th className="p-3 w-1/12 min-w-[100px] text-right">Quantity</th>
-                  <th className="p-3 w-2/12 min-w-[120px] text-right">Rate</th>
-                  <th className="p-3 w-2/12 min-w-[160px] text-right">Discount</th>
-                  <th className="p-3 w-1/12 min-w-[100px]">Tax</th>
-                  <th className="p-3 w-2/12 min-w-[120px] text-right">Amount</th>
-                  <th className="p-3 w-12 min-w-[50px]"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 bg-white">
-                {items.map((item, index) => (
-                  <tr key={item.id} className="hover:bg-slate-50/50">
-                    <td className="p-2 align-top">
-                       <Select value={item.item_details} onValueChange={(v) => handleItemChange(index, 'item_details', v)}>
-                         <SelectTrigger className="h-10 border-slate-200 shadow-none"><SelectValue placeholder="Select an Item..." /></SelectTrigger>
-                         <SelectContent>
-                           {products.map(p => (
-                             <SelectItem key={p.product_id} value={p.name}>{p.name}</SelectItem>
-                           ))}
-                         </SelectContent>
-                       </Select>
-                    </td>
-                    <td className="p-2 align-top">
-                      <Input type="number" min="1" className="h-10 text-right shadow-none" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} />
-                    </td>
-                    <td className="p-2 align-top">
-                      <Input type="number" className="h-10 text-right shadow-none" value={item.rate} onChange={(e) => handleItemChange(index, 'rate', e.target.value)} />
-                    </td>
-                    <td className="p-2 align-top">
-                      <div className="flex items-center gap-1">
-                        <Input type="number" className="h-10 w-2/3 text-right shadow-none" value={item.discount_amount} onChange={(e) => handleItemChange(index, 'discount_amount', e.target.value)} />
-                        <Select value={item.discount_type} onValueChange={(v) => handleItemChange(index, 'discount_type', v)}>
-                          <SelectTrigger className="h-10 w-1/3 px-2 shadow-none font-medium"><SelectValue /></SelectTrigger>
-                          <SelectContent><SelectItem value="percentage">%</SelectItem><SelectItem value="amount">₹</SelectItem></SelectContent>
-                        </Select>
-                      </div>
-                    </td>
-                    <td className="p-2 align-top">
-                      <Select value={item.tax_type} onValueChange={(v) => handleItemChange(index, 'tax_type', v)}>
-                        <SelectTrigger className="h-10 shadow-none"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="GST12">12%</SelectItem>
-                          <SelectItem value="GST18">18%</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="p-2 text-right font-medium text-slate-700 align-top pt-4">
-                      ₹{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}
-                    </td>
-                    <td className="p-2 text-center align-top pt-4">
-                      <button onClick={() => removeItemRow(index)} className="text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-md focus:outline-none transition-colors h-11 w-11 flex items-center justify-center min-h-[44px] min-w-[44px]"><Trash2 size={16} /></button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="mt-4">
-            <Button variant="ghost" onClick={addItemRow} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 focus:ring-2 focus:ring-blue-200">
-              <PlusCircle size={16} className="mr-2" /> Add Another Line
-            </Button>
-          </div>
-        </section>
-
-        {/* Totals Calculation */}
-        <section className="flex justify-end pt-8">
-          <div className="w-full max-w-sm bg-slate-50/50 p-6 rounded-xl border border-slate-100 shadow-sm space-y-4">
-            <div className="flex justify-between text-sm font-medium text-slate-600">
-              <span>Sub Total</span>
-              <span>₹{totals.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}</span>
-            </div>
-            
-            {(formData.account_type === 'enterprise' || formData.place_of_supply === 'Tamil Nadu') ? (
-              <>
-                <div className="flex justify-between text-sm text-slate-500">
-                  <span>CGST (9%)</span>
-                  <span>₹{totals.cgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}</span>
-                </div>
-                <div className="flex justify-between text-sm text-slate-500">
-                  <span>SGST (9%)</span>
-                  <span>₹{totals.sgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}</span>
-                </div>
-              </>
-            ) : (
-                <div className="flex justify-between text-sm text-slate-500">
-                  <span>IGST (18%)</span>
-                  <span>₹{totals.igst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}</span>
-                </div>
-            )}
-            
-            <div className="pt-4 border-t border-slate-200 flex justify-between font-black text-xl text-slate-800 items-baseline">
-              <span>Total</span>
-              <span className="text-2xl">₹{totals.grand_total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}</span>
-            </div>
-          </div>
-        </section>
+        <Button variant="ghost" className="text-indigo-600 font-bold text-xs uppercase tracking-widest gap-2 bg-indigo-50/50 hover:bg-indigo-50 rounded-lg px-4 h-8">
+          <Calculator size={14} /> Tax Calculation Active <ExternalLink size={12} />
+        </Button>
       </div>
 
-      {/* FOOTER */}
-      <footer className="bg-slate-50 border-t border-slate-200 p-6 rounded-b-xl flex justify-end gap-4 shadow-sm">
-        <Button variant="outline" className="px-6 h-11 border-slate-300 font-semibold text-slate-600 bg-white hover:bg-slate-50" onClick={() => handleSave("Draft")}>
-          Save as Draft
-        </Button>
-        <Button className="bg-blue-600 hover:bg-blue-700 px-8 h-11 font-bold text-white shadow-sm transition-colors" onClick={() => handleSave("Sent")}>
-          Save and Send
-        </Button>
-        <Button variant="ghost" className="px-6 h-11 font-semibold text-slate-500 hover:text-slate-700 hover:bg-slate-100" onClick={() => navigate('/invoices')}>
-          Cancel
-        </Button>
-      </footer>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Form Area */}
+        <div className="lg:col-span-2 space-y-4">
+          <Card className="rounded-xl border-slate-200 shadow-md overflow-hidden">
+            <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-4">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-indigo-600 text-white rounded-md"><User size={14} /></div>
+                <div>
+                  <CardTitle className="text-sm font-bold text-slate-800 uppercase tracking-tight">Entity Information</CardTitle>
+                  <CardDescription className="text-[10px] font-bold text-slate-400">Map the financial identity of the business entity.</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Business Entity / Customer *</Label>
+                    <Select 
+                      value={formData.user_id?.toString()}
+                      onValueChange={(v) => {
+                        const selectedCust = customers.find(c => c.id.toString() === v);
+                        if (selectedCust) {
+                          setFormData({
+                            ...formData,
+                            user_id: selectedCust.id,
+                            customer_name: selectedCust.full_name || selectedCust.email,
+                            email: selectedCust.email || '',
+                            customer_company_name: selectedCust.company_name,
+                            customer_gst_no: selectedCust.gst_no,
+                            account_type: selectedCust.account_type,
+                          });
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-8 rounded-lg border-slate-200 font-medium bg-slate-50/30 focus:bg-white transition-all">
+                        <SelectValue placeholder="Select Account Entity" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-lg shadow-xl p-1 border-slate-200">
+                        {customers.map((c) => (
+                          <SelectItem key={c.id} value={c.id.toString()} className="rounded-md font-medium p-2 text-xs">
+                             {c.full_name || 'Unnamed'} <span className="text-[9px] text-slate-400 ml-1">(@{c.email})</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Tax Jurisdiction (Place of Supply)</Label>
+                    <Select value={formData.place_of_supply} onValueChange={(v) => handleBaseChange('place_of_supply', v)}>
+                      <SelectTrigger className="h-8 rounded-lg border-slate-200 font-medium bg-slate-50/30 focus:bg-white transition-all">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-lg">
+                        <SelectItem value="Tamil Nadu">Tamil Nadu (Base)</SelectItem>
+                        <SelectItem value="Maharashtra">Maharashtra</SelectItem>
+                        <SelectItem value="Delhi">Delhi</SelectItem>
+                        <SelectItem value="Karnataka">Karnataka</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {formData.account_type === 'enterprise' && (
+                    <div className="col-span-full bg-indigo-50 border border-indigo-100 p-3 rounded-xl flex items-center justify-between">
+                       <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm">
+                            <Building2 size={16} />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-indigo-700">{formData.customer_company_name}</p>
+                            <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">GSTIN: {formData.customer_gst_no}</p>
+                          </div>
+                       </div>
+                       <Badge className="bg-indigo-600 text-white border-none uppercase text-[8px] font-bold px-2 py-0.5 rounded-md">Enterprise Account</Badge>
+                    </div>
+                  )}
+               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-xl border-slate-200 shadow-md overflow-hidden">
+            <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-4 flex flex-row items-center justify-between space-y-0">
+               <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-indigo-600 text-white rounded-md"><FileText size={14} /></div>
+                <div>
+                  <CardTitle className="text-sm font-bold text-slate-800 uppercase tracking-tight">Line Items</CardTitle>
+                  <CardDescription className="text-[10px] font-bold text-slate-400">Add SKUs and apply line-level discounts.</CardDescription>
+                </div>
+              </div>
+              <Button onClick={addItemRow} variant="outline" className="rounded-lg border-indigo-200 text-indigo-600 font-bold text-[10px] uppercase tracking-widest h-8 px-3">
+                 <Plus size={14} className="mr-1" /> Add SKU
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-slate-50">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Inventory SKU *</TableHead>
+                    <TableHead className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-slate-400 w-20">QTY</TableHead>
+                    <TableHead className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-slate-400 w-24">Rate (₹)</TableHead>
+                    <TableHead className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-slate-400 w-36">Discount</TableHead>
+                    <TableHead className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-slate-400 w-24">Net Total</TableHead>
+                    <TableHead className="w-8"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((item, index) => (
+                    <TableRow key={item.id} className="border-b border-slate-50 last:border-0 group">
+                      <TableCell className="px-4 py-2">
+                        <Select value={item.item_details} onValueChange={(v) => handleItemChange(index, 'item_details', v)}>
+                          <SelectTrigger className="h-8 rounded-lg border-slate-200 font-medium bg-slate-50/30 group-hover:bg-white transition-all text-xs">
+                             <SelectValue placeholder="Select Product SKU..." />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-lg">
+                            {products.map(p => (
+                              <SelectItem key={p.product_id} value={p.name} className="font-medium rounded-md text-xs">{p.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="px-3 py-2">
+                         <Input type="number" min="1" className="h-8 rounded-lg border-slate-200 text-right font-medium bg-slate-50/30 group-hover:bg-white transition-all text-xs" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} />
+                      </TableCell>
+                      <TableCell className="px-3 py-2">
+                         <Input type="number" className="h-8 rounded-lg border-slate-200 text-right font-medium bg-slate-50/30 group-hover:bg-white transition-all text-xs" value={item.rate} onChange={(e) => handleItemChange(index, 'rate', e.target.value)} />
+                      </TableCell>
+                      <TableCell className="px-3 py-2">
+                         <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-lg">
+                           <Input type="number" className="h-7 border-0 bg-transparent text-right font-medium text-xs focus-visible:ring-0" value={item.discount_amount} onChange={(e) => handleItemChange(index, 'discount_amount', e.target.value)} />
+                           <Select value={item.discount_type} onValueChange={(v) => handleItemChange(index, 'discount_type', v)}>
+                             <SelectTrigger className="h-7 w-12 rounded-md border-0 shadow-none font-bold text-[10px] bg-white"><SelectValue /></SelectTrigger>
+                             <SelectContent className="rounded-md"><SelectItem value="percentage">%</SelectItem><SelectItem value="amount">₹</SelectItem></SelectContent>
+                           </Select>
+                         </div>
+                      </TableCell>
+                      <TableCell className="px-4 py-2 text-right">
+                         <p className="font-bold text-slate-800 tracking-tight text-xs">
+                           ₹{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                         </p>
+                      </TableCell>
+                      <TableCell className="px-2 py-2 text-center">
+                         <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => removeItemRow(index)} 
+                          className="text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-md h-7 w-7"
+                          disabled={items.length === 1}
+                         >
+                           <Trash2 size={14} />
+                         </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Sidebar Info & Totals */}
+        <div className="space-y-4">
+           <Card className="rounded-xl border-slate-200 shadow-md overflow-hidden">
+             <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-indigo-600 text-white rounded-md"><Calendar size={14} /></div>
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-tight">Timeline & Ref</h3>
+                </div>
+             </CardHeader>
+             <CardContent className="p-4 space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Invoice Reference ID *</Label>
+                  <Input className="h-8 rounded-lg border-slate-200 font-medium bg-slate-50/50 text-xs" value={formData.invoice_number} onChange={e => handleBaseChange('invoice_number', e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Accounting Reference</Label>
+                  <Input className="h-8 rounded-lg border-slate-200 font-medium bg-slate-50/50 text-xs" value={formData.reference_number} placeholder="PO# or Order Mapping" onChange={e => handleBaseChange('reference_number', e.target.value)} />
+                </div>
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                   <div className="space-y-1">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Issue Date</Label>
+                      <Input type="date" className="h-8 rounded-lg border-slate-200 font-medium bg-slate-50/50 text-xs" value={formData.invoice_date} onChange={e => handleBaseChange('invoice_date', e.target.value)} />
+                   </div>
+                   <div className="space-y-1">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Payment Due Date</Label>
+                      <Input type="date" className="h-8 rounded-lg border-slate-200 font-medium bg-slate-50/50 text-rose-600 text-xs" value={formData.due_date} onChange={e => handleBaseChange('due_date', e.target.value)} />
+                   </div>
+                </div>
+             </CardContent>
+           </Card>
+
+           <Card className="rounded-xl border-slate-900 bg-slate-900 text-white shadow-xl shadow-indigo-100 overflow-hidden">
+              <CardHeader className="p-4 border-b border-white/10">
+                 <div className="flex items-center gap-2">
+                   <div className="p-1.5 bg-indigo-500 text-white rounded-md"><Calculator size={14} /></div>
+                   <h3 className="text-xs font-bold uppercase tracking-widest">Billing Summary</h3>
+                 </div>
+              </CardHeader>
+              <CardContent className="p-4 space-y-4">
+                 <div className="space-y-2">
+                    <div className="flex justify-between items-center text-white/60 text-xs">
+                       <span className="text-[10px] font-bold uppercase tracking-widest">Sub Total</span>
+                       <span className="font-medium">₹{totals.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    </div>
+
+                    {(formData.account_type === 'enterprise' || formData.place_of_supply === 'Tamil Nadu') ? (
+                      <>
+                        <div className="flex justify-between items-center text-white/60 text-xs">
+                           <span className="text-[10px] font-bold uppercase tracking-widest">Central GST (9%)</span>
+                           <span className="font-medium">₹{totals.cgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-white/60 text-xs">
+                           <span className="text-[10px] font-bold uppercase tracking-widest">State GST (9%)</span>
+                           <span className="font-medium">₹{totals.sgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex justify-between items-center text-white/60 text-xs">
+                         <span className="text-[10px] font-bold uppercase tracking-widest">Integrated GST (18%)</span>
+                         <span className="font-medium">₹{totals.igst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+                 </div>
+
+                 <div className="pt-3 border-t border-white/10 flex flex-col gap-0.5">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">Grand Ledger Total</span>
+                    <div className="text-2xl font-black tracking-tighter">
+                       ₹{totals.grand_total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </div>
+                 </div>
+
+                 <div className="pt-2 flex flex-col gap-2">
+                    <Button 
+                      className="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-bold h-9 rounded-lg shadow-md shadow-indigo-500/20 gap-2 text-xs"
+                      onClick={() => handleSave("Sent")}
+                    >
+                      <Send size={14} /> Save & Transmit
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      className="w-full text-white/70 hover:text-white hover:bg-white/10 font-medium h-8 rounded-md text-xs"
+                      onClick={() => handleSave("Draft")}
+                    >
+                      <Save size={14} className="mr-2" /> Save to Drafts
+                    </Button>
+                 </div>
+              </CardContent>
+           </Card>
+        </div>
+      </div>
     </div>
   );
 }

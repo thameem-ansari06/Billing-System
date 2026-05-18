@@ -9,20 +9,19 @@ import ProductCard from './ProductCard';
 import { API } from '../../config';
 
 const SkeletonCard = () => (
-  <div className="bg-white rounded-3xl border border-slate-50 p-0 animate-pulse flex flex-col h-[520px]">
-    <div className="h-[240px] bg-slate-50 rounded-t-3xl" />
-    <div className="p-6 space-y-6 flex-1 flex flex-col">
+  <div className="bg-white sm:rounded-xl border border-slate-200 p-0 animate-pulse flex flex-row sm:flex-col h-[140px] sm:h-[380px]">
+    <div className="w-[140px] sm:w-full h-full sm:h-[180px] bg-slate-50 border-r sm:border-r-0 sm:border-b border-slate-100 shrink-0" />
+    <div className="p-3 sm:p-4 space-y-4 flex-1 flex flex-col justify-between sm:justify-start">
       <div className="space-y-2">
-        <div className="h-3 bg-slate-50 rounded w-1/4" />
-        <div className="h-6 bg-slate-50 rounded w-3/4" />
+        <div className="h-2 bg-slate-100 rounded w-1/4" />
+        <div className="h-4 bg-slate-100 rounded w-3/4" />
       </div>
-      <div className="flex-1 space-y-2">
-        <div className="h-3 bg-slate-50 rounded w-full" />
-        <div className="h-3 bg-slate-50 rounded w-full" />
-        <div className="h-3 bg-slate-50 rounded w-2/3" />
+      <div className="hidden sm:block flex-1 space-y-1 mt-2">
+        <div className="h-2 bg-slate-100 rounded w-full" />
+        <div className="h-2 bg-slate-100 rounded w-2/3" />
       </div>
-      <div className="pt-4 border-t border-slate-50">
-        <div className="h-14 bg-slate-50 rounded-2xl w-full" />
+      <div className="mt-auto sm:pt-3">
+        <div className="h-8 bg-slate-100 sm:rounded-lg w-full" />
       </div>
     </div>
   </div>
@@ -78,34 +77,34 @@ export default function ProductCatalog() {
   );
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-      {/* Premium Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 bg-white p-8 md:p-10 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden group">
-        <div className="absolute top-0 right-0 p-12 opacity-[0.03] group-hover:scale-110 transition-transform duration-1000">
-           <Package size={180} />
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Premium Header - Condensed */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group">
+        <div className="absolute top-0 right-0 p-3 opacity-[0.03] group-hover:scale-110 transition-transform duration-1000">
+           <Package size={80} />
         </div>
         
-        <div className="space-y-2 relative">
-          <div className="flex items-center gap-2 text-indigo-600 font-black text-[10px] uppercase tracking-[0.3em]">
-            <Star size={14} className="fill-indigo-600" /> Premium Collection
+        <div className="space-y-1 relative">
+          <div className="flex items-center gap-1.5 text-indigo-600 font-bold text-[9px] uppercase tracking-widest">
+            <Star size={10} className="fill-indigo-600" /> Premium Collection
           </div>
-          <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight">
+          <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">
             Product Catalog
           </h1>
-          <p className="text-sm text-slate-400 font-medium max-w-md">Discover our professional-grade inventory with transparent GST-inclusive pricing.</p>
+          <p className="text-[10px] text-slate-500 font-medium max-w-sm">Discover our professional-grade inventory with transparent GST-inclusive pricing.</p>
         </div>
 
         {/* Search Bar */}
-        <div className="relative w-full md:w-[400px] group relative">
-          <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl blur opacity-0 group-focus-within:opacity-10 transition duration-500"></div>
+        <div className="relative w-full md:w-[320px] group relative z-10">
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg blur opacity-0 group-focus-within:opacity-20 transition duration-500"></div>
           <div className="relative">
-            <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
             <input
               type="text"
               placeholder="Search by name, ID or description..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-14 pr-6 py-4 text-sm bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-indigo-100 transition-all outline-none"
+              className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:border-indigo-300 transition-all outline-none shadow-inner"
             />
           </div>
         </div>
@@ -113,24 +112,25 @@ export default function ProductCatalog() {
 
       {/* Grid Layout */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-0 sm:gap-2.5 -mx-4 sm:mx-0">
           {[...Array(8)].map((_, i) => <SkeletonCard key={i} />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-24 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
-          <Package size={64} className="mx-auto mb-4 text-slate-200" strokeWidth={1} />
-          <p className="font-black text-slate-600 text-xl tracking-tight">No products matching your search</p>
-          <p className="text-sm text-slate-400 mt-1">Try refining your search terms or clearing the filter.</p>
+        <div className="text-center py-12 bg-white sm:rounded-xl border-y sm:border border-slate-200 shadow-sm -mx-4 sm:mx-0">
+          <Package size={40} className="mx-auto mb-2 text-slate-200" strokeWidth={1} />
+          <p className="font-bold text-slate-600 text-sm tracking-tight">No products matching your search</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">Try refining your search terms or clearing the filter.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-0 sm:gap-2.5 -mx-4 sm:mx-0 border-y sm:border-y-0 border-slate-200 sm:border-transparent">
           {filtered.map(product => (
-            <ProductCard 
-              key={product.id} 
-              product={product} 
-              onAddToCart={handleAddToCart} 
-              onViewDetails={handleViewDetails}
-            />
+            <div key={product.id} className="border-b border-slate-100 sm:border-b-0 last:border-b-0">
+              <ProductCard 
+                product={product} 
+                onAddToCart={handleAddToCart} 
+                onViewDetails={handleViewDetails}
+              />
+            </div>
           ))}
         </div>
       )}

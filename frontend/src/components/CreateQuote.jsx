@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { API } from '../config';
 
 export default function CreateQuote() {
   const navigate = useNavigate();
@@ -44,13 +45,13 @@ export default function CreateQuote() {
         const headers = { 'Authorization': `Bearer ${user.token}` };
         
         // Fetch Active Portal Users
-        const custRes = await fetch('https://billing-system-jk1c.onrender.com/api/admin/customers/active', { headers });
+        const custRes = await fetch(`${API}/admin/customers/active`, { headers });
         if (custRes.status === 401) throw new Error("Unauthorized");
         const custData = await custRes.json();
         setCustomers(Array.isArray(custData) ? custData : []);
         
         // Fetch Products
-        const prodRes = await fetch('https://billing-system-jk1c.onrender.com/api/products', { headers });
+        const prodRes = await fetch(`${API}/products`, { headers });
         const prodData = await prodRes.json();
         setProducts(prodData.products || []);
 
@@ -192,7 +193,7 @@ export default function CreateQuote() {
 
       console.log("Saving Quote Payload:", payload);
 
-      const response = await fetch('https://billing-system-jk1c.onrender.com/api/quotes/', {
+      const response = await fetch(`${API}/quotes/`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -216,194 +217,197 @@ export default function CreateQuote() {
     <div className="bg-white text-slate-900 rounded-xl shadow-sm border border-slate-200">
       
       {/* 1. HEADER */}
-      <header className="bg-slate-50/50 border-b border-slate-200 px-6 lg:px-10 py-5 flex items-center justify-between rounded-t-xl">
+      <header className="bg-slate-50/50 border-b border-slate-200 p-4 flex flex-col md:flex-row items-center justify-between gap-4 rounded-t-xl">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/quotes')} className="p-2 hover:bg-slate-100 rounded-full transition-all">
-            <ChevronLeft size={24} className="text-slate-600" />
-          </button>
-          <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-slate-800">New Quote</h1>
-          {formData.order_id && (
-            <Badge className="bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100 font-bold px-3 py-1 animate-pulse">
-              Draft Generated from Order #{formData.order_id}
-            </Badge>
-          )}
-          <button className="text-blue-600 text-sm font-semibold ml-4 hover:underline flex items-center gap-2">
-            Fetch Details From GSTN <ExternalLink size={16} />
-          </button>
+          <Button variant="outline" size="icon" onClick={() => navigate('/quotes')} className="h-8 w-8 rounded-lg">
+            <ChevronLeft size={16} className="text-slate-600" />
+          </Button>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-slate-800">New Quote</h1>
+            {formData.order_id && (
+              <Badge className="bg-amber-100 text-amber-700 border-amber-200 font-bold px-2 py-0 text-[10px] mt-0.5 animate-pulse">
+                Draft Generated from Order #{formData.order_id}
+              </Badge>
+            )}
+          </div>
         </div>
+        <Button variant="ghost" className="text-blue-600 font-bold text-xs uppercase tracking-widest gap-2 bg-blue-50/50 hover:bg-blue-50 rounded-lg h-8 px-4">
+          Fetch Details From GSTN <ExternalLink size={12} />
+        </Button>
       </header>
 
       {/* 2. FORM CONTENT */}
-      <div className="p-6 lg:p-10 space-y-10">
+      <div className="p-4 md:p-6 space-y-6">
         
         {/* Base Info */}
-        <section className="space-y-6 max-w-4xl">
-          <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-12 md:col-span-3 text-sm font-bold text-[#ef4444]">Customer Name *</Label>
-            <div className="col-span-12 md:col-span-6">
-              <Select 
-                value={formData.user_id?.toString()}
-                onValueChange={(v) => {
-                  const selectedCust = customers.find(c => c.id.toString() === v);
-                  if (selectedCust) {
-                    setFormData({
-                      ...formData,
-                      user_id: selectedCust.id,
-                      customer_name: selectedCust.full_name || selectedCust.email
-                    });
-                  }
-                }}
-              >
-                <SelectTrigger className="h-11 border-slate-200 focus:ring-1 focus:ring-blue-400">
-                  <SelectValue placeholder="Select a Customer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {error && <div className="p-2 text-xs text-red-500 font-bold">{error}</div>}
-                  {Array.isArray(customers) && customers.map((c) => (
-                    <SelectItem key={c.id} value={c.id.toString()}>
-                      {c.full_name || 'Unnamed User'} ({c.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        <section className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 bg-slate-50/30 p-4 rounded-xl border border-slate-100">
+          <div className="space-y-1 col-span-1 md:col-span-2">
+            <Label className="text-[10px] font-bold uppercase tracking-widest text-[#ef4444]">Customer Name *</Label>
+            <Select 
+              value={formData.user_id?.toString()}
+              onValueChange={(v) => {
+                const selectedCust = customers.find(c => c.id.toString() === v);
+                if (selectedCust) {
+                  setFormData({
+                    ...formData,
+                    user_id: selectedCust.id,
+                    customer_name: selectedCust.full_name || selectedCust.email
+                  });
+                }
+              }}
+            >
+              <SelectTrigger className="h-8 border-slate-200 focus:ring-1 focus:ring-blue-400 bg-white">
+                <SelectValue placeholder="Select a Customer" />
+              </SelectTrigger>
+              <SelectContent>
+                {error && <div className="p-2 text-[10px] text-red-500 font-bold">{error}</div>}
+                {Array.isArray(customers) && customers.map((c) => (
+                  <SelectItem key={c.id} value={c.id.toString()} className="text-xs">
+                    {c.full_name || 'Unnamed User'} ({c.email})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-700">Quote#</Label>
-            <Input className="col-span-12 md:col-span-6 h-11 border-slate-200" value={formData.quote_number} onChange={e => handleBaseChange('quote_number', e.target.value)} />
+          <div className="space-y-1">
+            <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Quote#</Label>
+            <Input className="h-8 border-slate-200 text-xs bg-white" value={formData.quote_number} onChange={e => handleBaseChange('quote_number', e.target.value)} />
           </div>
 
-          <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-700">Reference#</Label>
-            <Input className="col-span-12 md:col-span-6 h-11 border-slate-200" value={formData.reference_number} onChange={e => handleBaseChange('reference_number', e.target.value)} />
+          <div className="space-y-1">
+            <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Reference#</Label>
+            <Input className="h-8 border-slate-200 text-xs bg-white" value={formData.reference_number} onChange={e => handleBaseChange('reference_number', e.target.value)} />
           </div>
 
-          <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-12 md:col-span-3 text-sm font-bold text-[#ef4444]">Quote Date *</Label>
-            <Input type="date" className="col-span-12 md:col-span-3 h-11 border-slate-200" value={formData.quote_date} onChange={e => handleBaseChange('quote_date', e.target.value)} />
+          <div className="space-y-1">
+            <Label className="text-[10px] font-bold uppercase tracking-widest text-[#ef4444]">Quote Date *</Label>
+            <Input type="date" className="h-8 border-slate-200 text-xs bg-white" value={formData.quote_date} onChange={e => handleBaseChange('quote_date', e.target.value)} />
           </div>
 
-          <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-700">Expiry Date</Label>
-            <Input type="date" className="col-span-12 md:col-span-3 h-11 border-slate-200" value={formData.expiry_date} onChange={e => handleBaseChange('expiry_date', e.target.value)} />
+          <div className="space-y-1">
+            <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Expiry Date</Label>
+            <Input type="date" className="h-8 border-slate-200 text-xs bg-white" value={formData.expiry_date} onChange={e => handleBaseChange('expiry_date', e.target.value)} />
           </div>
 
-          <div className="grid grid-cols-12 gap-6 items-center">
-            <Label className="col-span-12 md:col-span-3 text-sm font-medium text-slate-700">Place of Supply</Label>
-            <div className="col-span-12 md:col-span-6">
-              <Select value={formData.place_of_supply} onValueChange={(v) => handleBaseChange('place_of_supply', v)}>
-                <SelectTrigger className="h-11 border-slate-200">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Tamil Nadu">Tamil Nadu</SelectItem>
-                  <SelectItem value="Maharashtra">Maharashtra</SelectItem>
-                  <SelectItem value="Delhi">Delhi</SelectItem>
-                  <SelectItem value="Karnataka">Karnataka</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <span className="col-span-12 md:col-span-3 text-xs text-slate-400">Used to compute CGST/SGST vs IGST</span>
+          <div className="space-y-1 col-span-1 md:col-span-2">
+            <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+              Place of Supply <span className="text-[8px] opacity-50">(Used for tax calculation)</span>
+            </Label>
+            <Select value={formData.place_of_supply} onValueChange={(v) => handleBaseChange('place_of_supply', v)}>
+              <SelectTrigger className="h-8 border-slate-200 bg-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Tamil Nadu">Tamil Nadu</SelectItem>
+                <SelectItem value="Maharashtra">Maharashtra</SelectItem>
+                <SelectItem value="Delhi">Delhi</SelectItem>
+                <SelectItem value="Karnataka">Karnataka</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </section>
 
         {/* Items Table */}
-        <section className="pt-4 border-t border-slate-200">
+        <section className="pt-2">
           <div className="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
             <table className="w-full text-left">
               <thead className="border-b border-slate-200">
-                <tr className="text-xs uppercase text-slate-500 font-bold bg-white">
-                  <th className="p-3 w-4/12 text-[#ef4444]">Item Details *</th>
-                  <th className="p-3 w-1/12 text-right">Quantity</th>
-                  <th className="p-3 w-2/12 text-right">Rate</th>
-                  <th className="p-3 w-2/12 text-right">Discount</th>
-                  <th className="p-3 w-1/12">Tax</th>
-                  <th className="p-3 w-2/12 text-right">Amount</th>
-                  <th className="p-3 w-12"></th>
+                <tr className="text-[10px] uppercase text-slate-500 font-bold bg-slate-100">
+                  <th className="px-4 py-2 w-3/12 text-[#ef4444]">Item Details *</th>
+                  <th className="px-2 py-2 w-1/12 text-right">Qty</th>
+                  <th className="px-2 py-2 w-2/12 text-right">Rate</th>
+                  <th className="px-2 py-2 w-2/12 text-right">Discount</th>
+                  <th className="px-2 py-2 w-1/12">Tax</th>
+                  <th className="px-4 py-2 w-2/12 text-right">Amount</th>
+                  <th className="px-2 py-2 w-8"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 bg-white">
+              <tbody className="divide-y divide-slate-100 bg-white">
                 {items.map((item, index) => (
                   <tr key={item.id} className="hover:bg-slate-50/50">
-                    <td className="p-2">
+                    <td className="px-4 py-2">
                        <Select value={item.item_details} onValueChange={(v) => handleItemChange(index, 'item_details', v)}>
-                         <SelectTrigger className="h-10 border-slate-200 shadow-none"><SelectValue placeholder="Select an Item..." /></SelectTrigger>
+                         <SelectTrigger className="h-8 border-slate-200 shadow-none text-xs"><SelectValue placeholder="Select Item" /></SelectTrigger>
                          <SelectContent>
                            {products.map(p => (
-                             <SelectItem key={p.product_id} value={p.name}>{p.name}</SelectItem>
+                             <SelectItem key={p.product_id} value={p.name} className="text-xs">{p.name}</SelectItem>
                            ))}
                          </SelectContent>
                        </Select>
                     </td>
-                    <td className="p-2">
-                      <Input type="number" min="1" className="h-10 text-right shadow-none" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} />
+                    <td className="px-2 py-2">
+                      <Input type="number" min="1" className="h-8 text-right shadow-none text-xs" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} />
                     </td>
-                    <td className="p-2">
-                      <Input type="number" className="h-10 text-right shadow-none" value={item.rate} onChange={(e) => handleItemChange(index, 'rate', e.target.value)} />
+                    <td className="px-2 py-2">
+                      <Input type="number" className="h-8 text-right shadow-none text-xs" value={item.rate} onChange={(e) => handleItemChange(index, 'rate', e.target.value)} />
                     </td>
-                    <td className="p-2 flex items-center gap-1">
-                      <Input type="number" className="h-10 w-2/3 text-right shadow-none" value={item.discount_amount} onChange={(e) => handleItemChange(index, 'discount_amount', e.target.value)} />
-                      <Select value={item.discount_type} onValueChange={(v) => handleItemChange(index, 'discount_type', v)}>
-                        <SelectTrigger className="h-10 w-1/3 px-2 shadow-none font-medium"><SelectValue /></SelectTrigger>
-                        <SelectContent><SelectItem value="percentage">%</SelectItem><SelectItem value="amount">₹</SelectItem></SelectContent>
-                      </Select>
+                    <td className="px-2 py-2">
+                      <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-md">
+                        <Input type="number" className="h-6 border-0 bg-transparent text-right font-medium text-xs focus-visible:ring-0 px-1" value={item.discount_amount} onChange={(e) => handleItemChange(index, 'discount_amount', e.target.value)} />
+                        <Select value={item.discount_type} onValueChange={(v) => handleItemChange(index, 'discount_type', v)}>
+                          <SelectTrigger className="h-6 w-10 px-1 shadow-none font-bold text-[10px] bg-white border-0"><SelectValue /></SelectTrigger>
+                          <SelectContent className="min-w-[4rem]"><SelectItem value="percentage">%</SelectItem><SelectItem value="amount">₹</SelectItem></SelectContent>
+                        </Select>
+                      </div>
                     </td>
-                    <td className="p-2">
+                    <td className="px-2 py-2">
                       <Select value={item.tax_type} onValueChange={(v) => handleItemChange(index, 'tax_type', v)}>
-                        <SelectTrigger className="h-10 shadow-none"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-8 shadow-none text-[10px] font-bold"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="GST12">12%</SelectItem>
-                          <SelectItem value="GST18">18%</SelectItem>
+                          <SelectItem value="GST12" className="text-[10px]">12%</SelectItem>
+                          <SelectItem value="GST18" className="text-[10px]">18%</SelectItem>
                         </SelectContent>
                       </Select>
                     </td>
-                    <td className="p-2 text-right font-medium text-slate-700">
+                    <td className="px-4 py-2 text-right font-bold text-slate-800 text-xs">
                       ₹{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}
                     </td>
-                    <td className="p-2 text-center">
-                      <button onClick={() => removeItemRow(index)} className="text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-md focus:outline-none transition-colors h-11 w-11 flex items-center justify-center min-h-[44px] min-w-[44px]"><Trash2 size={16} /></button>
+                    <td className="px-2 py-2 text-center">
+                      <Button variant="ghost" size="icon" onClick={() => removeItemRow(index)} disabled={items.length === 1} className="h-7 w-7 text-slate-400 hover:text-red-500 hover:bg-red-50">
+                        <Trash2 size={14} />
+                      </Button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <div className="mt-4">
-            <Button variant="ghost" onClick={addItemRow} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">
-              <PlusCircle size={16} className="mr-2" /> Add Another Line
+          <div className="mt-3">
+            <Button variant="ghost" onClick={addItemRow} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-8 px-3 font-bold text-[10px] uppercase tracking-widest">
+              <PlusCircle size={14} className="mr-1.5" /> Add Another Line
             </Button>
           </div>
         </section>
 
         {/* Totals Calculation */}
-        <section className="flex justify-end pt-8">
-          <div className="w-1/3 bg-slate-50/50 p-6 rounded-lg border border-slate-100 space-y-4">
-            <div className="flex justify-between text-sm font-medium text-slate-600">
-              <span>Sub Total</span>
+        <section className="flex justify-end pt-4">
+          <div className="w-full md:w-1/2 lg:w-1/3 bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
+            <div className="flex justify-between text-xs font-bold text-slate-600">
+              <span className="uppercase tracking-widest text-[10px]">Sub Total</span>
               <span>₹{totals.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}</span>
             </div>
             
             {formData.place_of_supply === 'Tamil Nadu' ? (
               <>
-                <div className="flex justify-between text-sm text-slate-500">
-                  <span>CGST</span>
+                <div className="flex justify-between text-xs font-medium text-slate-500">
+                  <span className="uppercase tracking-widest text-[10px]">CGST</span>
                   <span>₹{totals.cgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}</span>
                 </div>
-                <div className="flex justify-between text-sm text-slate-500">
-                  <span>SGST</span>
+                <div className="flex justify-between text-xs font-medium text-slate-500">
+                  <span className="uppercase tracking-widest text-[10px]">SGST</span>
                   <span>₹{totals.sgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}</span>
                 </div>
               </>
             ) : (
-                <div className="flex justify-between text-sm text-slate-500">
-                  <span>IGST</span>
+                <div className="flex justify-between text-xs font-medium text-slate-500">
+                  <span className="uppercase tracking-widest text-[10px]">IGST</span>
                   <span>₹{totals.igst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}</span>
                 </div>
             )}
             
-            <div className="pt-4 border-t border-slate-200 flex justify-between font-black text-xl text-slate-800">
-              <span>Total ( ₹ )</span>
+            <div className="pt-3 border-t border-slate-200 flex justify-between font-black text-lg text-slate-800">
+              <span className="uppercase tracking-widest text-[10px] self-center">Total ( ₹ )</span>
               <span>₹{totals.grand_total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits:2 })}</span>
             </div>
           </div>
@@ -411,15 +415,15 @@ export default function CreateQuote() {
       </div>
 
       {/* 3. FOOTER */}
-      <footer className="bg-slate-50 border-t border-slate-200 p-6 rounded-b-xl flex justify-end gap-4 shadow-sm">
-        <Button variant="outline" className="px-6 h-11 border-slate-300 font-semibold text-slate-600 bg-white" onClick={() => handleSave("Draft")}>
+      <footer className="bg-slate-50 border-t border-slate-200 p-4 flex flex-col sm:flex-row justify-end gap-3 rounded-b-xl shadow-sm">
+        <Button variant="ghost" className="px-6 h-8 font-bold text-slate-500 hover:text-slate-700 w-full sm:w-auto" onClick={() => navigate('/quotes')}>
+          Cancel
+        </Button>
+        <Button variant="outline" className="px-6 h-8 border-slate-300 font-bold text-slate-600 bg-white w-full sm:w-auto" onClick={() => handleSave("Draft")}>
           Save as Draft
         </Button>
-        <Button className="bg-blue-600 hover:bg-blue-700 px-8 h-11 font-bold text-white" onClick={() => handleSave("Sent")}>
+        <Button className="bg-blue-600 hover:bg-blue-700 px-8 h-8 font-bold text-white shadow-md shadow-blue-100 w-full sm:w-auto" onClick={() => handleSave("Sent")}>
           Save and Send
-        </Button>
-        <Button variant="ghost" className="px-6 h-11 font-semibold text-slate-500 hover:text-slate-700" onClick={() => navigate('/quotes')}>
-          Cancel
         </Button>
       </footer>
     </div>

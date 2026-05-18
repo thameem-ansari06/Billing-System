@@ -13,14 +13,15 @@ def get_dashboard_stats(
 ):
     """Retrieve high-level business statistics."""
     # This matches the structure expected by DashboardTab.jsx
-    invoices = db.query(Invoice).all()
+    from app.models.orm import Order
+    invoices = db.query(Invoice).join(Order).filter(Order.is_deleted == False).all()
     
     total_revenue = sum(inv.grand_total for inv in invoices if inv.grand_total)
     # total_pending: invoices that are not 'Paid' or 'Rejected'
     total_pending = sum(inv.grand_total for inv in invoices if inv.status not in ["Paid", "Rejected"])
     
-    # Recent transactions (last 5 invoices)
-    recent = db.query(Invoice).order_by(Invoice.id.desc()).limit(5).all()
+    # Recent transactions (last 5 invoices from non-deleted orders)
+    recent = db.query(Invoice).join(Order).filter(Order.is_deleted == False).order_by(Invoice.id.desc()).limit(5).all()
     
     # Format recent invoices for serialization
     formatted_recent = []

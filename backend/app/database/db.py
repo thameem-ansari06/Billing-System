@@ -29,7 +29,7 @@ def get_next_id(prefix, table_name, column_name):
     """
     from datetime import datetime
     year = datetime.now().year
-    year_prefix = f"{prefix}/{year}/"
+    year_prefix = f"{prefix}-{year}-"
     
     db = SessionLocal()
     try:
@@ -39,8 +39,8 @@ def get_next_id(prefix, table_name, column_name):
         
         if result and result[0]:
             last_id_str = result[0]
-            # Split 'INV/2026/005' by '/' and take the last part
-            parts = last_id_str.split('/')
+            # Split 'INV-2026-005' by '-' and take the last part
+            parts = last_id_str.split('-')
             last_num = int(parts[-1])
             new_num = last_num + 1
         else:

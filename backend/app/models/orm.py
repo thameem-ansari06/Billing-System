@@ -43,6 +43,8 @@ class Order(Base):
     status = Column(Enum(OrderStatus), default=OrderStatus.Placed)
     total_amount = Column(Float, default=0.0)
     origin = Column(String, default="standard") # Added for tracking Bulk (quote_derived) vs Standard orders
+    is_deleted = Column(Boolean, default=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User")
@@ -139,6 +141,12 @@ class Product(Base):
     image_urls = Column(JSONB, default=[]) # All images list
     gst_percentage = Column(Float, default=18.0)
     stock_quantity = Column(Integer, default=0)
+    hsn_code = Column(String, nullable=True)
+    category = Column(String, nullable=True)
+    type = Column(String, default="Goods")
+    unit = Column(String, default="pcs")
+    tax_preference = Column(String, default="Taxable")
+    is_deleted = Column(Boolean, default=False)
 
 class Invoice(Base):
     __tablename__ = "invoices"
@@ -212,6 +220,18 @@ class InvoiceItem(Base):
 
     invoice = relationship("Invoice", back_populates="items")
 
+class DeliveryBatch(Base):
+    __tablename__ = "delivery_batches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    driver_id = Column(Integer, ForeignKey("users.id"))
+    batch_otp = Column(String(6), nullable=False)
+    status = Column(String, default="PENDING") # PENDING, PICKED_UP
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    driver = relationship("User")
+    tasks = relationship("DeliveryTask", back_populates="batch")
+
 class DeliveryTask(Base):
     __tablename__ = "delivery_tasks"
 
@@ -232,10 +252,12 @@ class DeliveryTask(Base):
     delivery_photo_url = Column(String, nullable=True)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
+    batch_id = Column(Integer, ForeignKey("delivery_batches.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     invoice = relationship("Invoice", back_populates="delivery_tasks")
     driver = relationship("User", foreign_keys=[driver_id])
+    batch = relationship("DeliveryBatch", back_populates="tasks")
 
     @property
     def sync_invoice_number(self):

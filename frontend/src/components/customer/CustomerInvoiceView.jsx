@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
+import { API } from '../../config';
 
 export default function CustomerInvoiceView() {
   const { id } = useParams(); // This is the invoice_number
@@ -35,7 +36,7 @@ export default function CustomerInvoiceView() {
     try {
       // Decode the ID in case it contains slashes like INV/2026/001
       const invoiceNumber = decodeURIComponent(id);
-      const res = await fetch(`https://billing-system-jk1c.onrender.com/api/invoices/invoices/${encodeURIComponent(invoiceNumber)}`, {
+      const res = await fetch(`${API}/invoices/invoices/${encodeURIComponent(invoiceNumber)}`, {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       if (res.ok) {
@@ -60,7 +61,7 @@ export default function CustomerInvoiceView() {
     setIsPaying(true);
     try {
       // 1. Create Order
-      const orderRes = await fetch('https://billing-system-jk1c.onrender.com/api/payments/create-order', {
+      const orderRes = await fetch(`${API}/payments/create-order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -84,10 +85,15 @@ export default function CustomerInvoiceView() {
         name: "Enterprise GST Billing",
         description: `Payment for Invoice ${invoice.invoice_number}`,
         order_id: orderData.order_id,
+        callback_url: `${API}/payments/verify?invoice_number=${invoice.invoice_number}&invoice_id=${invoice.id}`,
+        notes: {
+          invoice_id: invoice.id,
+          invoice_number: invoice.invoice_number
+        },
         handler: async function (response) {
           try {
             // 3. Verify Payment Signature on Backend
-            const verifyRes = await fetch('https://billing-system-jk1c.onrender.com/api/payments/verify', {
+            const verifyRes = await fetch(`${API}/payments/verify`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -97,7 +103,8 @@ export default function CustomerInvoiceView() {
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                invoice_number: invoice.invoice_number
+                invoice_number: invoice.invoice_number,
+                invoice_id: invoice.id
               })
             });
 
@@ -160,20 +167,20 @@ export default function CustomerInvoiceView() {
         </Button>
       </div>
 
-      <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl overflow-hidden relative">
+      <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm overflow-hidden relative">
         {paymentSuccess && (
-          <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-emerald-500 to-teal-500 p-3 text-center text-white font-bold animate-in slide-in-from-top duration-500">
+          <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-emerald-500 to-teal-500 p-2 text-center text-white font-bold text-xs animate-in slide-in-from-top duration-500">
             Payment Successful! Your logistics are being arranged.
           </div>
         )}
         
-        <div className={`transition-all duration-500 ${paymentSuccess ? 'mt-8' : ''}`}>
-          <div className="flex justify-between items-start mb-8 border-b border-slate-100 pb-8">
+        <div className={`transition-all duration-500 ${paymentSuccess ? 'mt-6' : ''}`}>
+          <div className="flex justify-between items-start mb-6 border-b border-slate-100 pb-4">
             <div>
-              <h1 className="text-4xl font-black text-slate-800 tracking-tight mb-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight mb-1">
                 Invoice {invoice.invoice_number}
               </h1>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <Badge className={
                   invoice.status === 'Paid' ? "bg-emerald-100 text-emerald-700" :
                   invoice.status === 'Sent' ? "bg-blue-100 text-blue-700" :
@@ -181,70 +188,70 @@ export default function CustomerInvoiceView() {
                 }>
                   {invoice.status}
                 </Badge>
-                <span className="text-sm font-medium text-slate-500">Issued on: {invoice.invoice_date}</span>
+                <span className="text-[10px] font-medium text-slate-500">Issued: {invoice.invoice_date}</span>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-sm font-medium text-slate-500 mb-1">Total Amount Due</p>
-              <h2 className="text-5xl font-black text-indigo-600">
+              <p className="text-[10px] font-medium text-slate-500 mb-0.5">Total Amount Due</p>
+              <h2 className="text-2xl sm:text-3xl font-black text-indigo-600">
                 ₹{parseFloat(invoice.grand_total).toLocaleString('en-IN')}
               </h2>
             </div>
           </div>
 
-          <div className="space-y-6 mb-8">
-            <h3 className="text-lg font-bold text-slate-800">Itemized Breakdown</h3>
-            <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
+          <div className="space-y-4 mb-6">
+            <h3 className="text-sm font-bold text-slate-800">Itemized Breakdown</h3>
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
               {invoice.items?.map((item, idx) => (
-                <div key={idx} className="flex justify-between items-center py-3 border-b border-slate-200 last:border-0">
+                <div key={idx} className="flex justify-between items-center py-2 border-b border-slate-200 last:border-0">
                   <div>
-                    <p className="font-bold text-slate-700">{item.item_details}</p>
-                    <p className="text-xs text-slate-500">Qty: {item.quantity} × ₹{item.rate}</p>
+                    <p className="font-bold text-xs text-slate-700">{item.item_details}</p>
+                    <p className="text-[10px] text-slate-500">Qty: {item.quantity} × ₹{item.rate}</p>
                   </div>
-                  <div className="font-black text-slate-800">
+                  <div className="font-bold text-sm text-slate-800">
                     ₹{item.amount.toLocaleString('en-IN')}
                   </div>
                 </div>
               ))}
             </div>
             
-            <div className="flex justify-end pr-6 space-y-2">
-              <div className="w-64">
-                <div className="flex justify-between text-sm text-slate-500 mb-1">
+            <div className="flex justify-end pr-4 space-y-1">
+              <div className="w-56">
+                <div className="flex justify-between text-[10px] text-slate-500 mb-0.5">
                   <span>Subtotal</span>
                   <span>₹{invoice.subtotal}</span>
                 </div>
                 
                 {invoice.customer_company_name ? (
                   <>
-                    <div className="flex justify-between text-sm text-slate-500 mb-1">
+                    <div className="flex justify-between text-[10px] text-slate-500 mb-0.5">
                       <span>CGST (9%)</span>
                       <span>₹{invoice.cgst.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-sm text-slate-500 mb-1">
+                    <div className="flex justify-between text-[10px] text-slate-500 mb-0.5">
                       <span>SGST (9%)</span>
                       <span>₹{invoice.sgst.toFixed(2)}</span>
                     </div>
                   </>
                 ) : (
-                  <div className="flex justify-between text-sm text-slate-500 mb-1">
+                  <div className="flex justify-between text-[10px] text-slate-500 mb-0.5">
                     <span>GST Total</span>
                     <span>₹{parseFloat(invoice.cgst + invoice.sgst + invoice.igst).toFixed(2)}</span>
                   </div>
                 )}
                 
-                <div className="flex justify-between text-lg font-black text-slate-800 mt-3 pt-3 border-t border-slate-200">
+                <div className="flex justify-between text-base font-black text-slate-800 mt-2 pt-2 border-t border-slate-200">
                   <span>Grand Total</span>
                   <span>₹{parseFloat(invoice.grand_total).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                 </div>
 
                 {invoice.settled_amount > 0 && (
                   <>
-                    <div className="flex justify-between text-sm font-bold text-blue-600 mt-2">
+                    <div className="flex justify-between text-[10px] font-bold text-blue-600 mt-1">
                       <span>Settled from Advance</span>
                       <span>- ₹{parseFloat(invoice.settled_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                     </div>
-                    <div className="flex justify-between text-xl font-black text-slate-900 mt-2 pt-2 border-t-2 border-slate-900 border-dashed">
+                    <div className="flex justify-between text-base font-black text-slate-900 mt-1 pt-1 border-t-2 border-slate-900 border-dashed">
                       <span>Balance Due</span>
                       <span>₹{Math.max(0, invoice.grand_total - invoice.amount_paid).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                     </div>
@@ -256,32 +263,32 @@ export default function CustomerInvoiceView() {
 
           {/* B2B Bill To Section */}
           {invoice.customer_company_name && (
-            <div className="mb-8 p-6 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center">
+            <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-100 flex justify-between items-center">
               <div>
-                <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest mb-1">Bill To (Business)</p>
-                <h4 className="text-xl font-bold text-slate-800">{invoice.customer_company_name}</h4>
-                <div className="flex items-center gap-2 mt-1">
-                  <Badge variant="outline" className="bg-white border-slate-200 text-slate-600 font-bold">
+                <p className="text-[9px] uppercase font-bold text-slate-400 tracking-widest mb-0.5">Bill To (Business)</p>
+                <h4 className="text-sm font-bold text-slate-800">{invoice.customer_company_name}</h4>
+                <div className="flex items-center gap-1 mt-1">
+                  <Badge variant="outline" className="bg-white border-slate-200 text-slate-600 font-bold text-[9px] px-1 py-0 h-4">
                     GSTIN: {invoice.customer_gst_no}
                   </Badge>
                 </div>
               </div>
               <div className="text-right">
-                <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-sm inline-block">
-                  <p className="text-[10px] uppercase font-black text-blue-600 tracking-widest leading-none mb-1">Tax Type</p>
-                  <p className="font-bold text-slate-700">GST B2B Invoice</p>
+                <div className="p-2 bg-white rounded-lg border border-slate-200 shadow-sm inline-block">
+                  <p className="text-[8px] uppercase font-bold text-blue-600 tracking-widest leading-none mb-1">Tax Type</p>
+                  <p className="font-bold text-[10px] text-slate-700">GST B2B Invoice</p>
                 </div>
               </div>
             </div>
           )}
 
           {/* Action Area */}
-          <div className="flex items-center justify-between bg-indigo-50 p-6 rounded-2xl border border-indigo-100">
+          <div className="flex flex-col sm:flex-row items-center justify-between bg-indigo-50 p-4 rounded-xl border border-indigo-100 gap-4">
             <div className="flex items-center gap-3 text-indigo-800">
-              <ShieldCheck size={28} className="text-indigo-600" />
+              <ShieldCheck size={20} className="text-indigo-600" />
               <div>
-                <p className="font-bold">Secure Checkout</p>
-                <p className="text-xs font-medium text-indigo-600/80">Powered by Razorpay</p>
+                <p className="font-bold text-sm">Secure Checkout</p>
+                <p className="text-[10px] font-medium text-indigo-600/80">Powered by Razorpay</p>
               </div>
             </div>
             
@@ -289,29 +296,27 @@ export default function CustomerInvoiceView() {
               <Button 
                 onClick={handlePayment} 
                 disabled={isPaying}
-                size="lg"
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-lg px-8 h-14 rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95"
+                className="bg-indigo-600 w-full sm:w-auto hover:bg-indigo-700 text-white font-bold text-sm px-6 h-10 rounded-lg shadow-md shadow-indigo-200 transition-all active:scale-95"
               >
-                {isPaying ? <Loader2 className="mr-2 animate-spin" /> : <CheckCircle className="mr-2" />}
+                {isPaying ? <Loader2 className="mr-2 animate-spin" size={16} /> : <CheckCircle className="mr-2" size={16} />}
                 Accept & Pay ₹{parseFloat(invoice.grand_total).toLocaleString('en-IN')}
               </Button>
             ) : (
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 {invoice.challan_url && (
                   <Button 
                     variant="outline"
-                    className="border-indigo-200 text-indigo-700 font-bold bg-white"
-                    onClick={() => window.open(`http://localhost:8000${invoice.challan_url}`, '_blank')}
+                    className="border-indigo-200 text-indigo-700 font-bold bg-white h-10 px-4 text-xs"
+                    onClick={() => window.open(`${API.replace('/api', '')}${invoice.challan_url}`, '_blank')}
                   >
-                    <FileText size={16} className="mr-2" /> View Delivery Challan
+                    <FileText size={14} className="mr-1.5" /> View Delivery Challan
                   </Button>
                 )}
                 <Button 
                   disabled
-                  size="lg"
-                  className="bg-emerald-100 text-emerald-700 font-black text-lg px-8 h-14 rounded-xl opacity-100"
+                  className="bg-emerald-100 text-emerald-700 font-bold text-sm px-6 h-10 rounded-lg opacity-100"
                 >
-                  <CheckCircle className="mr-2" /> Paid Successfully
+                  <CheckCircle className="mr-1.5" size={14} /> Paid
                 </Button>
               </div>
             )}

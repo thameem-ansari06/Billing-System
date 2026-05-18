@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { API } from '../config';
 
 export default function QuotesTab() {
   const [quotes, setQuotes] = useState([]);
@@ -18,7 +19,7 @@ export default function QuotesTab() {
     if (!user?.token) return;
     setIsLoading(true);
     try {
-      const res = await fetch('https://billing-system-jk1c.onrender.com/api/quotes', {
+      const res = await fetch(`${API}/quotes`, {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       const data = await res.json();
@@ -42,7 +43,7 @@ export default function QuotesTab() {
 
     setIsApproving(quoteId);
     try {
-      const res = await fetch(`https://billing-system-jk1c.onrender.com/api/quotes/${quoteId}/approve`, {
+      const res = await fetch(`${API}/quotes/${quoteId}/approve`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${user.token}` }
       });

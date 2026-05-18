@@ -16,12 +16,39 @@ def generate_pdf_invoice(invoice_id, customer_email, items_list, tax_data=None, 
     
     # Math Engine
     df = pd.DataFrame(items_list)
-    df['Price'] = df['Price'].astype(float)
-    df['Quantity'] = df['Quantity'].astype(float)
+
+    if df.empty:
+        # Prevent crash if items_list is empty
+        print("⚠️ [Generator] Received empty items_list. Building empty table.")
+        df = pd.DataFrame(columns=['Item Name', 'Quantity', 'Price', 'Amount'])
+
+    # Standardize column names (Safe-guard against case-sensitivity or key aliases)
+    rename_map = {}
+    for col in df.columns:
+        low_col = col.lower().replace("_", " ")
+        if low_col in ['price', 'rate', 'unit price']:
+            rename_map[col] = 'Price'
+        elif low_col in ['quantity', 'qty']:
+            rename_map[col] = 'Quantity'
+        elif low_col in ['amount', 'total']:
+            rename_map[col] = 'Amount'
+        elif low_col in ['item name', 'item details', 'description']:
+            rename_map[col] = 'Item Name'
+    
+    df.rename(columns=rename_map, inplace=True)
+
+    # Ensure mandatory columns exist before casting
+    for col in ['Price', 'Quantity']:
+        if col not in df.columns:
+            print(f"⚠️ [Generator] Missing '{col}' in data. Defaulting to 0.")
+            df[col] = 0.0
+
+    df['Price'] = pd.to_numeric(df['Price'], errors='coerce').fillna(0).astype(float)
+    df['Quantity'] = pd.to_numeric(df['Quantity'], errors='coerce').fillna(0).astype(float)
     
     # Calculate subtotal as sum of amounts
     if 'Amount' in df.columns:
-        df['Amount'] = df['Amount'].astype(float)
+        df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0).astype(float)
         subtotal = df['Amount'].sum()
     else:
         subtotal = (df['Price'] * df['Quantity']).sum()
@@ -99,12 +126,12 @@ def generate_pdf_invoice(invoice_id, customer_email, items_list, tax_data=None, 
     
     # 4. Items Table
     table_data = [['DESCRIPTION', 'QTY', 'RATE (₹)', 'AMOUNT (₹)']]
-    for item in items_list:
+    for _, row in df.iterrows():
         table_data.append([
-            item.get('Item Name', 'Service'),
-            str(item.get('Quantity', 1)),
-            f"{float(item.get('Price', 0)):.2f}",
-            f"{float(item.get('Amount', item.get('Price', 0))):.2f}"
+            row.get('Item Name', 'Service'),
+            str(row.get('Quantity', 1)),
+            f"{float(row.get('Price', 0)):.2f}",
+            f"{float(row.get('Amount', row.get('Price', 0))):.2f}"
         ])
         
     t = Table(table_data, colWidths=[3.5*inch, 0.8*inch, 1.2*inch, 1.5*inch])

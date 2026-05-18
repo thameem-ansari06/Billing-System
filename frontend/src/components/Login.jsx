@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, ArrowRight, Lock, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { API } from '../config';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -21,7 +22,7 @@ export default function Login() {
     }
     setLoading(true);
     try {
-      const res = await fetch('https://billing-system-jk1c.onrender.com/api/auth/login', {
+      const res = await fetch(`${API}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ username, password }),

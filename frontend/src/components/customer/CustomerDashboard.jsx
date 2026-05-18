@@ -84,34 +84,34 @@ export default function CustomerDashboard() {
     <div className="space-y-6 max-w-5xl mx-auto animate-in fade-in duration-700 pb-20">
 
       {/* Premium Welcome Banner */}
-      <div className="relative overflow-hidden rounded-[2.5rem] bg-slate-900 p-8 md:p-12 text-white shadow-2xl shadow-indigo-900/20">
-        <div className="absolute -top-24 -right-24 w-64 h-64 rounded-full bg-indigo-500/10 blur-3xl" />
-        <div className="absolute -bottom-12 -left-12 w-48 h-48 rounded-full bg-emerald-500/5 blur-2xl" />
+      <div className="relative overflow-hidden rounded-xl bg-slate-900 p-6 text-white shadow-lg shadow-indigo-900/10">
+        <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-indigo-500/10 blur-2xl" />
+        <div className="absolute -bottom-8 -left-8 w-24 h-24 rounded-full bg-emerald-500/5 blur-xl" />
 
-        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
-          <div className="space-y-4 text-center md:text-left">
+        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="space-y-2 text-center md:text-left">
             <div>
-              <p className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Customer Portal</p>
-              <h1 className="text-4xl md:text-5xl font-black tracking-tight">
+              <p className="text-indigo-400 text-[9px] font-bold uppercase tracking-widest mb-1">Customer Portal</p>
+              <h1 className="text-2xl font-bold tracking-tight">
                 Hello, <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-indigo-300">{displayName}</span>
               </h1>
             </div>
-            <p className="text-slate-400 font-medium text-sm md:text-base max-w-md leading-relaxed">
+            <p className="text-slate-400 font-medium text-xs max-w-md leading-snug">
               Experience seamless business procurement with real-time tracking and automated GST billing.
             </p>
-            <div className="flex flex-wrap gap-3 justify-center md:justify-start pt-2">
+            <div className="flex flex-wrap gap-2 justify-center md:justify-start pt-1">
               <button
                 onClick={() => navigate('/customer/catalog')}
-                className="group flex items-center gap-2 bg-indigo-600 text-white font-black px-6 py-3.5 rounded-2xl text-sm shadow-xl shadow-indigo-600/20 hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95"
+                className="group flex items-center gap-1.5 bg-indigo-600 text-white font-bold px-4 py-2 rounded-lg text-xs shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-all active:scale-95"
               >
-                Start Shopping <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                Start Shopping <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
           </div>
           
           <div className="hidden md:block">
-             <div className="w-32 h-32 rounded-[2rem] bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center">
-                <Package size={64} className="text-indigo-400" />
+             <div className="w-16 h-16 rounded-xl bg-white/5 backdrop-blur-md border border-white/10 flex items-center justify-center">
+                <Package size={32} className="text-indigo-400" />
              </div>
           </div>
         </div>
@@ -121,17 +121,17 @@ export default function CustomerDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Stats Column */}
-        <div className="space-y-6">
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest px-2">Account Overview</h3>
-          <div className="grid grid-cols-1 gap-4">
+        <div className="space-y-4">
+          <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Account Overview</h3>
+          <div className="grid grid-cols-1 gap-3">
             {statCards.map((card) => (
-              <div key={card.label} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 flex items-center gap-6 hover:shadow-md transition-all group">
-                <div className={`w-16 h-16 rounded-2xl ${card.bg} ${card.text} flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
-                  {card.icon}
+              <div key={card.label} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition-all group">
+                <div className={`w-10 h-10 rounded-lg ${card.bg} ${card.text} flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
+                  {React.cloneElement(card.icon, { size: 16 })}
                 </div>
                 <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{card.label}</p>
-                  <p className="text-3xl font-black text-slate-800 mt-1">{card.value}</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{card.label}</p>
+                  <p className="text-lg font-bold text-slate-800 leading-tight">{card.value}</p>
                 </div>
               </div>
             ))}
@@ -139,30 +139,30 @@ export default function CustomerDashboard() {
         </div>
 
         {/* Quick Actions Column */}
-        <div className="space-y-6">
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest px-2">Quick Navigation</h3>
-          <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 space-y-4 shadow-sm">
-             <div className="grid grid-cols-1 gap-3">
+        <div className="space-y-4">
+          <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Quick Navigation</h3>
+          <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-2 shadow-sm">
+             <div className="grid grid-cols-1 gap-2">
                 {[
-                  { label: 'Order History', path: '/customer/orders', icon: <History size={20} className="text-indigo-500" />, desc: 'Track your deliveries & buy again' },
-                  { label: 'My Invoices', path: '/customer/invoices', icon: <FileText size={20} className="text-emerald-500" />, desc: 'View and download GST invoices' },
-                  { label: 'Product Catalog', path: '/customer/catalog', icon: <ShoppingCart size={20} className="text-amber-500" />, desc: 'Browse and order new products' },
+                  { label: 'Order History', path: '/customer/orders', icon: <History size={16} className="text-indigo-500" />, desc: 'Track your deliveries & buy again' },
+                  { label: 'My Invoices', path: '/customer/invoices', icon: <FileText size={16} className="text-emerald-500" />, desc: 'View and download GST invoices' },
+                  { label: 'Product Catalog', path: '/customer/catalog', icon: <ShoppingCart size={16} className="text-amber-500" />, desc: 'Browse and order new products' },
                 ].map(link => (
                   <button 
                     key={link.label}
                     onClick={() => navigate(link.path)}
-                    className="w-full flex items-center justify-between p-5 bg-slate-50 hover:bg-indigo-50 rounded-2xl transition-all group border border-transparent hover:border-indigo-100"
+                    className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-indigo-50 rounded-lg transition-all group border border-transparent hover:border-indigo-100"
                   >
-                    <div className="flex items-center gap-4 text-left">
-                       <div className="p-3 bg-white rounded-xl shadow-sm group-hover:scale-110 transition-transform">
+                    <div className="flex items-center gap-3 text-left">
+                       <div className="p-2 bg-white rounded-md shadow-sm group-hover:scale-110 transition-transform">
                           {link.icon}
                        </div>
                        <div>
-                          <p className="font-bold text-slate-800 text-sm leading-tight">{link.label}</p>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">{link.desc}</p>
+                          <p className="font-bold text-slate-800 text-xs leading-tight">{link.label}</p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">{link.desc}</p>
                        </div>
                     </div>
-                    <ChevronRight size={18} className="text-slate-300 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" />
+                    <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" />
                   </button>
                 ))}
              </div>
@@ -171,17 +171,17 @@ export default function CustomerDashboard() {
       </div>
 
       {/* Mini Promotion Banner */}
-      <div className="bg-gradient-to-r from-indigo-600 to-violet-700 rounded-[2rem] p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-indigo-200">
-         <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-xl flex items-center justify-center">
-               <LayoutDashboard size={24} />
+      <div className="bg-gradient-to-r from-indigo-600 to-violet-700 rounded-xl p-4 text-white flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
+         <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-white/10 backdrop-blur-sm rounded-lg flex items-center justify-center">
+               <LayoutDashboard size={16} />
             </div>
             <div>
-               <p className="text-sm font-black tracking-tight">Need help with your orders?</p>
-               <p className="text-xs text-indigo-100 opacity-80">Our support team is available 24/7 for business accounts.</p>
+               <p className="text-xs font-bold tracking-tight">Need help with your orders?</p>
+               <p className="text-[10px] text-indigo-100">Our support team is available 24/7 for business accounts.</p>
             </div>
          </div>
-         <button className="px-6 py-3 bg-white text-indigo-600 font-black rounded-xl text-xs hover:scale-105 active:scale-95 transition-all">
+         <button className="px-4 py-2 bg-white text-indigo-600 font-bold rounded-lg text-xs hover:scale-105 active:scale-95 transition-all">
             Contact Support
          </button>
       </div>

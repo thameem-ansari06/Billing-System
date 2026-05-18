@@ -7,10 +7,10 @@ import json
 import random
 from datetime import datetime
 from app.database.db import get_db
-from app.models.orm import DeliveryTask, User, UserRole, DeliveryStatus, Invoice, Order, ActivityLog
+from app.models.orm import DeliveryTask, User, UserRole, DeliveryStatus, Invoice, Order, ActivityLog, DeliveryBatch
 from sqlalchemy.orm import joinedload
 from app.utils.auth import get_current_active_user
-from app.models.schemas import DeliveryTaskRead, DeliveryTaskAdminRead, UserRead
+from app.models.schemas import DeliveryTaskRead, DeliveryTaskAdminRead, UserRead, BulkAssignRequest, BatchVerifyRequest, DeliveryBatchRead
 from fastapi import BackgroundTasks
 from app.utils.email import send_otp_email
 
@@ -35,7 +35,8 @@ def get_delivery_tasks(
 ):
     """Retrieve all delivery tasks for admin or specific tasks for delivery personnel."""
     query = db.query(DeliveryTask).options(
-        joinedload(DeliveryTask.invoice).joinedload(Invoice.order)
+        joinedload(DeliveryTask.invoice).joinedload(Invoice.order),
+        joinedload(DeliveryTask.batch)
     ).order_by(DeliveryTask.id.desc())
     
     if current_user.role in [UserRole.admin, UserRole.ceo, UserRole.sales]:
@@ -130,7 +131,10 @@ def get_task_detail(
 ):
     """Fetch details for a specific task."""
     task = db.query(DeliveryTask)\
-        .options(joinedload(DeliveryTask.invoice).joinedload(Invoice.order))\
+        .options(
+            joinedload(DeliveryTask.invoice).joinedload(Invoice.order),
+            joinedload(DeliveryTask.batch)
+        )\
         .filter(DeliveryTask.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -207,6 +211,100 @@ async def verify_pickup(
     await manager.broadcast_to_admin({"type": "status_update", "invoice": task.invoice_number, "status": "PICKED_UP"})
 
     return {"message": "Pickup verified", "status": task.status}
+
+@router.post("/bulk-assign", response_model=DeliveryBatchRead)
+def bulk_assign(
+    req: BulkAssignRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Group multiple tasks into a batch and assign to a driver."""
+    if current_user.role not in [UserRole.admin, UserRole.ceo]:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    
+    # 1. Validation
+    tasks = db.query(DeliveryTask).filter(DeliveryTask.id.in_(req.task_ids)).all()
+    if len(tasks) != len(req.task_ids):
+        raise HTTPException(status_code=400, detail="One or more tasks not found")
+    
+    for t in tasks:
+        if t.batch_id:
+            raise HTTPException(status_code=400, detail=f"Task #{t.invoice_number} is already in a batch (Batch ID: {t.batch_id})")
+        if t.status in [DeliveryStatus.PICKED_UP, DeliveryStatus.DELIVERED]:
+            raise HTTPException(status_code=400, detail=f"Task #{t.invoice_number} has already been {t.status}")
+
+    # 2. Create Batch
+    otp = str(random.randint(100000, 999999))
+    batch = DeliveryBatch(
+        driver_id=req.driver_id,
+        batch_otp=otp,
+        status="PENDING"
+    )
+    db.add(batch)
+    db.flush() # Get batch.id
+
+    # 3. Bulk Update Tasks (Performance Optimized)
+    db.query(DeliveryTask).filter(DeliveryTask.id.in_(req.task_ids)).update({
+        DeliveryTask.batch_id: batch.id,
+        DeliveryTask.driver_id: req.driver_id,
+        DeliveryTask.status: DeliveryStatus.ASSIGNED
+    }, synchronize_session=False)
+
+    # 4. Activity Log
+    db.add(ActivityLog(
+        action=f"Bulk Assigned {len(req.task_ids)} tasks to Batch #{batch.id}",
+        category="Logistics",
+        user_id=current_user.id
+    ))
+    
+    db.commit()
+    db.refresh(batch)
+    return batch
+
+@router.post("/batch-verify-pickup")
+async def verify_batch_pickup(
+    req: BatchVerifyRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Verify a batch OTP to mark all tasks as PICKED_UP."""
+    batch = db.query(DeliveryBatch).filter(DeliveryBatch.id == req.batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    
+    if batch.batch_otp != req.otp:
+        raise HTTPException(status_code=400, detail="Invalid Batch OTP")
+    
+    if batch.status == "PICKED_UP":
+         raise HTTPException(status_code=400, detail="Batch already picked up")
+
+    # 1. Bulk Update Tasks (Performance Optimized)
+    db.query(DeliveryTask).filter(DeliveryTask.batch_id == req.batch_id).update({
+        DeliveryTask.status: DeliveryStatus.PICKED_UP
+    }, synchronize_session=False)
+
+    # 2. Update Batch Status
+    batch.status = "PICKED_UP"
+    
+    # 3. Activity Log
+    db.add(ActivityLog(
+        action=f"Batch #{batch.id} Picked Up (OTP Verified)",
+        category="Logistics",
+        user_id=current_user.id
+    ))
+    
+    db.commit()
+
+    # 4. Broadcast via WebSocket (Broadcast first 5 for notification, or generic message)
+    from app.utils.websocket_manager import manager
+    await manager.broadcast_to_admin({
+        "type": "status_update", 
+        "batch_id": batch.id, 
+        "status": "PICKED_UP",
+        "message": f"Batch #{batch.id} has been picked up."
+    })
+
+    return {"message": "Batch pickup verified", "batch_id": batch.id}
 
 @router.put("/{task_id}/status")
 def update_task_status(

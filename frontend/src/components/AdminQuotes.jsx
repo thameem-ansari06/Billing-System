@@ -4,11 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '../context/AuthContext';
+import { API } from '../config';
 import { useNavigate } from 'react-router-dom';
 import { usePermissions } from '../hooks/usePermissions';
 import QuoteDetailModal from './QuoteDetailModal';
 
-export default function AdminQuotes() {
+function AdminQuotes() {
   const [quotes, setQuotes] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -22,7 +23,7 @@ export default function AdminQuotes() {
     if (!user?.token) return;
     setIsLoading(true);
     try {
-      const response = await fetch('https://billing-system-jk1c.onrender.com/api/quotes/', {
+      const response = await fetch(`${API}/quotes/`, {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       if (response.ok) {
@@ -258,3 +259,5 @@ export default function AdminQuotes() {
     </>
   );
 }
+
+export default AdminQuotes;

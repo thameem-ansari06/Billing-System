@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { RefreshCw, Download } from 'lucide-react';
+import { API } from '../config';
 
 export default function DeliveryChallansTab() {
   const [challans, setChallans] = useState([]);
@@ -17,7 +18,7 @@ export default function DeliveryChallansTab() {
   const fetchChallans = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('https://billing-system-jk1c.onrender.com/api/delivery-challans', {
+      const res = await fetch(`${API}/delivery-challans`, {
         headers: { 'Authorization': `Bearer ${user?.token}` }
       });
       const data = await res.json();
@@ -51,7 +52,7 @@ export default function DeliveryChallansTab() {
 
     setIsDownloading(num);
     try {
-      const res = await fetch(`https://billing-system-jk1c.onrender.com/api/delivery-challans/pdf-view/${encodeURIComponent(num)}`, {
+      const res = await fetch(`${API}/delivery-challans/pdf-view/${encodeURIComponent(num)}`, {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       
@@ -59,7 +60,7 @@ export default function DeliveryChallansTab() {
       
       const data = await res.json();
       if (data.file_url) {
-        window.open(`http://localhost:8000${data.file_url}`, '_blank');
+        window.open(`${API.replace('/api', '')}${data.file_url}`, '_blank');
       } else {
         throw new Error("No file URL received");
       }

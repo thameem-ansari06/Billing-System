@@ -3,6 +3,7 @@ import { X, Download, FileText, User, Calendar, Package, RefreshCw, Zap, CheckCi
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '../context/AuthContext';
+import { API } from '../config';
 
 const fmt = (n) => parseFloat(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
@@ -39,7 +40,7 @@ export default function QuoteDetailModal({ quoteId, onClose, onStatusChange }) {
     const headers = { Authorization: `Bearer ${user.token}` };
     setIsLoading(true);
     setError(null);
-    fetch(`https://billing-system-jk1c.onrender.com/api/quotes/${quoteId}/detail`, { headers })
+    fetch(`${API}/quotes/${quoteId}/detail`, { headers })
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status} — check backend logs`);
         return r.json();
@@ -53,11 +54,11 @@ export default function QuoteDetailModal({ quoteId, onClose, onStatusChange }) {
     const headers = { Authorization: `Bearer ${user.token}` };
     setIsGeneratingPdf(true);
     try {
-      const res = await fetch(`https://billing-system-jk1c.onrender.com/api/quotes/${quoteId}/pdf`, { headers });
+      const res = await fetch(`${API}/quotes/${quoteId}/pdf`, { headers });
       if (!res.ok) throw new Error('PDF generation failed — HTTP ' + res.status);
       const data = await res.json();
       if (data.file_url) {
-        window.open(`http://localhost:8000${data.file_url}`, '_blank');
+        window.open(`${API.replace('/api', '')}${data.file_url}`, '_blank');
       } else {
         throw new Error("No file URL received");
       }
@@ -74,7 +75,7 @@ export default function QuoteDetailModal({ quoteId, onClose, onStatusChange }) {
     setStatusUpdating(true);
     try {
       const res = await fetch(
-        `https://billing-system-jk1c.onrender.com/api/quotes/${quoteId}/status?status=${newStatus}`,
+        `${API}/quotes/${quoteId}/status?status=${newStatus}`,
         { method: 'PUT', headers }
       );
       if (!res.ok) throw new Error('Status update failed — HTTP ' + res.status);

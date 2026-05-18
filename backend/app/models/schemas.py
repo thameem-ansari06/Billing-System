@@ -89,6 +89,11 @@ class ProductModel(ORMBase):
     image_urls: List[str] = []
     gst_percentage: Optional[float] = 18.0
     stock_quantity: Optional[int] = 0
+    hsn_code: Optional[str] = None
+    category: Optional[str] = None
+    type: Optional[str] = "Goods"
+    unit: Optional[str] = "pcs"
+    tax_preference: Optional[str] = "Taxable"
 
 class ProductRead(ProductModel):
     id: int
@@ -207,9 +212,9 @@ class InvoiceCreate(ORMBase):
     invoice_date: Optional[str] = None
     due_date: Optional[str] = None
     subtotal: float
-    cgst: float
-    sgst: float
-    igst: float
+    cgst: Optional[float] = 0.0
+    sgst: Optional[float] = 0.0
+    igst: Optional[float] = 0.0
     grand_total: float
     customer_company_name: Optional[str] = None
     customer_gst_no: Optional[str] = None
@@ -253,9 +258,9 @@ class QuoteCreate(ORMBase):
     quote_date: Optional[str] = None
     expiry_date: Optional[str] = None
     subtotal: float
-    cgst: float
-    sgst: float
-    igst: float
+    cgst: Optional[float] = 0.0
+    sgst: Optional[float] = 0.0
+    igst: Optional[float] = 0.0
     grand_total: float
     customer_company_name: Optional[str] = None
     customer_gst_no: Optional[str] = None
@@ -324,11 +329,13 @@ class DeliveryTaskBase(ORMBase):
     longitude: Optional[float] = None
     invoice_number: Optional[str] = None
     order_reference: Optional[str] = None
+    batch_id: Optional[int] = None
 
 class DeliveryTaskRead(DeliveryTaskBase):
     id: Any
     created_at: Optional[datetime] = None
     driver: Optional[UserRead] = None
+    batch: Optional['DeliveryBatchRead'] = None
 
 class DeliveryTaskAdminRead(DeliveryTaskRead):
     pickup_otp: Optional[str] = None
@@ -337,6 +344,24 @@ class DeliveryTaskAdminRead(DeliveryTaskRead):
 class DeliveryTaskUpdate(ORMBase):
     status: Optional[str] = None
     driver_id: Optional[int] = None
+
+# 6.1 Delivery Batch Models
+class BulkAssignRequest(BaseModel):
+    task_ids: List[int]
+    driver_id: int
+
+class BatchVerifyRequest(BaseModel):
+    batch_id: int
+    otp: str
+
+class DeliveryBatchRead(ORMBase):
+    id: int
+    driver_id: int
+    batch_otp: str
+    status: str
+    created_at: datetime
+    tasks: List[DeliveryTaskRead] = []
+    driver: Optional[UserRead] = None
 
 # 7. Admin & Dashboard
 class DashboardStats(BaseModel):
@@ -369,6 +394,7 @@ class PaymentVerify(BaseModel):
     razorpay_payment_id: str
     razorpay_signature: str
     invoice_number: str
+    invoice_id: Optional[int] = None
 
 class PaymentRead(PaymentBase):
     id: int
@@ -415,3 +441,17 @@ class AdvanceRead(AdvanceCreate):
     id: int
     is_adjusted: bool = False
     created_at: datetime
+
+# 9. System Management
+class FactoryResetRequest(BaseModel):
+    admin_password: str
+
+class SelectiveResetRequest(BaseModel):
+    admin_password: str
+    inventory: bool = False
+    customers: bool = False
+    invoices: bool = False
+    quotes: bool = False
+    payments: bool = False
+    activity_logs: bool = False
+    delivery_logistics: bool = False

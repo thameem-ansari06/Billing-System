@@ -20,6 +20,7 @@ class OrderStatus(str, enum.Enum):
     Delivered = "delivered"
 
 class DeliveryStatus(str, enum.Enum):
+    PENDING = "PENDING"
     ASSIGNED = "ASSIGNED"
     PENDING_DELIVERY = "Pending Delivery"
     PICKED_UP = "PICKED_UP"

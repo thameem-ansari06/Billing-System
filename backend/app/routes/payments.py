@@ -12,7 +12,7 @@ from typing import List, Optional
 from fastapi.responses import FileResponse
 from app.database.db import get_db
 from app.models.orm import Invoice, Payment, User, DeliveryTask, ActivityLog, Advance
-from app.models.enums import PaymentMethod, PaymentStatus
+from app.models.enums import PaymentMethod, PaymentStatus, DeliveryStatus
 from app.models.schemas import (
     PaymentCreate, PaymentVerify, AdvanceCreate, 
     PaymentRecordRequest, PaymentRead, PaymentStats, PaymentResponse
@@ -359,14 +359,22 @@ def create_payment_order(data: PaymentCreate, db: Session = Depends(get_db), cur
             "amount": int(invoice.grand_total * 100),
             "currency": "INR",
             "receipt": invoice.invoice_number,
-            "payment_capture": 1
+            "payment_capture": 1,
+            "notes": {
+                "invoice_id": invoice.id,
+                "invoice_number": invoice.invoice_number
+            }
         })
         return {"order_id": order["id"], "amount": order["amount"], "currency": order["currency"], "key_id": RAZORPAY_KEY_ID}
     except Exception as e: raise HTTPException(status_code=500, detail=str(e))
 
-async def process_successful_payment(invoice_number: str, payment_id: str, signature: str, order_id: str, amount: float, db: Session):
-    invoice = db.query(Invoice).filter(Invoice.invoice_number == invoice_number).first()
-    if not invoice or invoice.status == "Paid": return
+async def process_successful_payment(invoice_number: str, payment_id: str, signature: str, order_id: str, amount: float, db: Session, invoice_id: Optional[int] = None):
+    if invoice_id:
+        invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    else:
+        invoice = db.query(Invoice).filter(Invoice.invoice_number == invoice_number).first()
+    
+    if not invoice or invoice.payment_status == "Paid": return
     try:
         payment = Payment(
             razorpay_order_id=order_id, razorpay_payment_id=payment_id,
@@ -376,24 +384,140 @@ async def process_successful_payment(invoice_number: str, payment_id: str, signa
             status=PaymentStatus.SUCCESS
         )
         db.add(payment)
+        
+        # 2. Update Invoice Status
         invoice.status = "Paid"
+        invoice.payment_status = "Paid"
         invoice.amount_paid = invoice.grand_total
+
+
+        # 🚚 3. AUTO-DELIVERY HANDSHAKE & CHALLAN GENERATION (Wrapped in try-except for robustness)
+        try:
+            # Fetch customer's full profile for logistics
+            customer = db.query(User).filter(User.id == invoice.user_id).first()
+            full_address = f"{customer.address_line}, {customer.city}, {customer.state} - {customer.pincode}" if (customer and customer.address_line) else invoice.place_of_supply
+            
+            # Pull contact from User profile or fallback to a placeholder
+            contact_phone = customer.phone if (customer and customer.phone) else "Not Provided"
+    
+            # Prepare items for challan PDF
+            items_for_challan = [{"Item Name": item.item_details, "Quantity": item.quantity} for item in (invoice.items or [])]
+    
+            # Generate Challan PDF
+            print(f"DEBUG: Generating Challan for {invoice.invoice_number}")
+            challan_url = generate_delivery_challan(
+                invoice_id=invoice.invoice_number,
+                customer_name=invoice.customer_name or "Customer",
+                customer_address=full_address or "No Address Provided",
+                contact_number=contact_phone or "N/A",
+                items_list=items_for_challan
+            )
+    
+            invoice.challan_url = challan_url
+    
+            # Create Delivery Task
+            new_task = DeliveryTask(
+                invoice_id=invoice.id,
+                invoice_number=invoice.invoice_number,
+                order_reference=str(invoice.order_id) if invoice.order_id else invoice.reference_number,
+                customer_name=invoice.customer_name or "Customer",
+                customer_address=full_address or "No Address Provided",
+                contact_number=contact_phone or "N/A",
+                challan_url=challan_url,
+                status=DeliveryStatus.PENDING,
+                timestamp_logs={DeliveryStatus.PENDING.value: datetime.now().isoformat()}
+            )
+            db.add(new_task)
+            print(f"DEBUG: Delivery Task created for {invoice.invoice_number} with status PENDING")
+        except Exception as delivery_err:
+            print(f"WARNING: Delivery task creation failed for {invoice.invoice_number}: {delivery_err}")
+            # We don't raise here because we want to ensure the payment is still recorded
+        
+        # Log Activity
+        db.add(ActivityLog(
+            action=f"Payment Received & Delivery Triggered for #{invoice.invoice_number}",
+            category="Finance",
+            user_id=invoice.user_id
+        ))
+    
         db.commit()
         await manager.broadcast_to_admin({"type": "payment_received", "invoice": invoice.invoice_number})
     except Exception as e:
         db.rollback()
+        print(f"CRITICAL ERROR in process_successful_payment: {e}")
+        import traceback
+        traceback.print_exc()
         raise e
 
 @router.post("/verify")
-async def verify_payment(data: PaymentVerify, db: Session = Depends(get_db)):
-    if not razorpay_client: raise HTTPException(status_code=500, detail="Razorpay config missing")
+async def verify_payment(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    print("DEBUG: /verify endpoint triggered")
+    
+    # 1. Extract Data (Handle JSON or Form)
+    content_type = request.headers.get("content-type", "")
+    data = {}
+    
+    if "application/json" in content_type:
+        data = await request.json()
+    else:
+        # Handle Form Data from Razorpay callback_url
+        form_data = await request.form()
+        data = dict(form_data)
+        # Get invoice_number from query params if missing in form
+        if "invoice_number" not in data:
+            data["invoice_number"] = request.query_params.get("invoice_number")
+
+    print(f"DEBUG: Data received for verification: {data}")
+
+    razorpay_order_id = data.get("razorpay_order_id")
+    razorpay_payment_id = data.get("razorpay_payment_id")
+    razorpay_signature = data.get("razorpay_signature")
+    invoice_number = data.get("invoice_number")
+    invoice_id = data.get("invoice_id")
+
+    if not all([razorpay_order_id, razorpay_payment_id, razorpay_signature]):
+        print(f"ERROR: Missing required fields. Data: {data}")
+        # If it's a form callback, they might be cancelled?
+        if not "application/json" in content_type:
+             return RedirectResponse(url="https://ar-automation-thameem.vercel.app/customer/invoices?payment=failed")
+        raise HTTPException(status_code=400, detail="Missing required fields")
+
+    # 2. Verify Signature
+    if not razorpay_client:
+        raise HTTPException(status_code=500, detail="Razorpay config missing")
+        
     try:
         razorpay_client.utility.verify_payment_signature({
-            'razorpay_order_id': data.razorpay_order_id,
-            'razorpay_payment_id': data.razorpay_payment_id,
-            'razorpay_signature': data.razorpay_signature
+            'razorpay_order_id': razorpay_order_id,
+            'razorpay_payment_id': razorpay_payment_id,
+            'razorpay_signature': razorpay_signature
         })
-    except: raise HTTPException(status_code=400, detail="Invalid signature")
-    invoice = db.query(Invoice).filter(Invoice.invoice_number == data.invoice_number).first()
-    await process_successful_payment(data.invoice_number, data.razorpay_payment_id, data.razorpay_signature, data.razorpay_order_id, invoice.grand_total, db)
-    return {"status": "success"}
+        print(f"DEBUG: Signature verified for {invoice_number}")
+    except Exception as e:
+        print(f"ERROR: Signature verification failed: {e}")
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    # 3. Process Success
+    try:
+        invoice = db.query(Invoice).filter(Invoice.invoice_number == invoice_number).first()
+        if not invoice:
+            print(f"ERROR: Invoice {invoice_number} not found during verification")
+            raise HTTPException(status_code=404, detail="Invoice not found")
+
+        await process_successful_payment(invoice_number, razorpay_payment_id, razorpay_signature, razorpay_order_id, invoice.grand_total, db, invoice_id=invoice_id)
+        
+        # 4. Response / Redirect
+        if "application/json" in content_type:
+            return {"status": "success"}
+        else:
+            # Browser callback: Redirect to frontend
+            return RedirectResponse(url=f"https://ar-automation-thameem.vercel.app/customer/invoices/{invoice_number}?payment=success")
+            
+    except Exception as e:
+        print(f"CRITICAL ERROR in verify_payment flow: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))

@@ -1,18 +1,40 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { FileText, Search, RefreshCw, Eye, MoreHorizontal, Zap, Plus, Download, Send } from 'lucide-react';
+import { 
+  FileText, Search, RefreshCw, Eye, MoreHorizontal, Zap, 
+  Plus, Download, Send, Calendar, ArrowUpRight, CheckCircle2,
+  AlertCircle, Clock, Filter
+} from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { usePermissions } from '../hooks/usePermissions';
+import { API } from '../config';
+import { cn } from "@/lib/utils";
 
 export default function InvoicesTab() {
   const [invoices, setInvoices] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterMode, setFilterMode] = useState('all'); // 'all' | 'auto' | 'manual'
+  const [filterMode, setFilterMode] = useState('all'); 
   const { user } = useAuth();
   const navigate = useNavigate();
   const { canEdit } = usePermissions();
@@ -21,14 +43,12 @@ export default function InvoicesTab() {
     if (!user?.token) return;
     setIsLoading(true);
     try {
-      const response = await fetch('https://billing-system-jk1c.onrender.com/api/invoices/', {
+      const response = await fetch(`${API}/invoices/`, {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       if (response.ok) {
         const data = await response.json();
         setInvoices(data.invoices || []);
-      } else {
-        console.error('Invoice fetch failed:', response.status);
       }
     } catch (err) {
       console.error('Fetch Error:', err);
@@ -41,290 +61,268 @@ export default function InvoicesTab() {
     if (user?.token) fetchInvoices();
   }, [user?.token]);
 
-  const getStatusBadge = (status) => {
-    if (!status) return <Badge className="bg-slate-100 text-slate-700 border-slate-200 font-bold px-3 py-1">Draft</Badge>;
-    switch (status.toLowerCase()) {
+  const getStatusConfig = (status) => {
+    const s = (status || 'Draft').toLowerCase();
+    switch (s) {
       case 'paid':
-        return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 font-bold px-3 py-1">Paid</Badge>;
+        return { label: 'Paid', variant: 'success', icon: CheckCircle2, className: 'bg-emerald-50 text-emerald-700 border-emerald-100' };
       case 'partially paid':
-        return <Badge className="bg-cyan-100 text-cyan-700 border-cyan-200 font-bold px-3 py-1">Partially Paid</Badge>;
+        return { label: 'Partial', variant: 'secondary', icon: Clock, className: 'bg-cyan-50 text-cyan-700 border-cyan-100' };
       case 'sent':
-        return <Badge className="bg-blue-100 text-blue-700 border-blue-200 font-bold px-3 py-1">Sent</Badge>;
-      case 'accepted':
-        return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 font-bold px-3 py-1">Accepted</Badge>;
-      case 'rejected':
-        return <Badge className="bg-red-100 text-red-700 border-red-200 font-bold px-3 py-1">Rejected</Badge>;
+        return { label: 'Sent', variant: 'default', icon: Send, className: 'bg-blue-50 text-blue-700 border-blue-100' };
       case 'overdue':
-        return <Badge className="bg-red-100 text-red-700 border-red-200 font-bold px-3 py-1">Overdue</Badge>;
+        return { label: 'Overdue', variant: 'destructive', icon: AlertCircle, className: 'bg-rose-50 text-rose-700 border-rose-100' };
       case 'pending approval':
-        return <Badge className="bg-amber-100 text-amber-700 border-amber-200 font-bold px-3 py-1">Pending Approval</Badge>;
+        return { label: 'Pending', variant: 'warning', icon: Clock, className: 'bg-amber-50 text-amber-700 border-amber-100' };
       case 'draft':
       case 'auto-generated':
-        return <Badge className="bg-slate-100 text-slate-600 border-slate-200 font-bold px-3 py-1">{status || 'Draft'}</Badge>;
+        return { label: status || 'Draft', variant: 'outline', icon: FileText, className: 'bg-slate-50 text-slate-600 border-slate-200' };
       default:
-        return <Badge className="bg-slate-100 text-slate-700 border-slate-200 font-bold px-3 py-1">{status}</Badge>;
+        return { label: status, variant: 'outline', icon: FileText, className: 'bg-slate-50 text-slate-600 border-slate-200' };
     }
   };
 
-  const autoCount   = invoices.filter(inv => inv.is_auto_generated).length;
+  const autoCount = invoices.filter(inv => inv.is_auto_generated).length;
   const manualCount = invoices.length - autoCount;
 
-  // Live search + filter
   const displayedInvoices = useMemo(() => {
     let list = invoices;
-
-    if (filterMode === 'auto')   list = list.filter(inv => inv.is_auto_generated);
+    if (filterMode === 'auto') list = list.filter(inv => inv.is_auto_generated);
     if (filterMode === 'manual') list = list.filter(inv => !inv.is_auto_generated);
-
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(inv =>
-        (inv.invoice_number  || '').toLowerCase().includes(q) ||
-        (inv.customer_name   || '').toLowerCase().includes(q) ||
-        (inv.reference_number|| '').toLowerCase().includes(q) ||
-        (inv.status          || '').toLowerCase().includes(q)
+        (inv.invoice_number || '').toLowerCase().includes(q) ||
+        (inv.customer_name || '').toLowerCase().includes(q) ||
+        (inv.reference_number || '').toLowerCase().includes(q) ||
+        (inv.status || '').toLowerCase().includes(q)
       );
     }
-
     return list;
   }, [invoices, searchQuery, filterMode]);
 
-  const [isDownloading, setIsDownloading] = useState(null); // stores invoiceNumber being downloaded
-
+  const [isDownloading, setIsDownloading] = useState(null);
   const handleDownload = async (e, invoiceNumber) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (!user?.token) {
-      alert("You must be logged in to download invoices.");
-      return;
-    }
-
+    e.preventDefault(); e.stopPropagation();
+    if (!user?.token) return;
     setIsDownloading(invoiceNumber);
     try {
-      const response = await fetch(`https://billing-system-jk1c.onrender.com/api/invoices/generate/${encodeURIComponent(invoiceNumber)}/`, {
+      const response = await fetch(`${API}/invoices/generate/${encodeURIComponent(invoiceNumber)}/`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${user.token}`
-        }
+        headers: { 'Authorization': `Bearer ${user.token}` }
       });
-
-      if (!response.ok) {
-        throw new Error(`Generation failed: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      if (data.file_url) {
-        // Open the physical static file in a new tab
-        window.open(`http://localhost:8000${data.file_url}`, '_blank');
-      } else {
-        throw new Error("No file URL received from server");
+      if (response.ok) {
+        const data = await response.json();
+        if (data.file_url) window.open(`${API.replace('/api', '')}${data.file_url}`, '_blank');
       }
     } catch (err) {
-      console.error("Download error:", err);
-      alert("Error generating invoice. Please try again.");
+      toast.error("Error generating invoice PDF.");
     } finally {
       setIsDownloading(null);
     }
   };
 
   const [isSending, setIsSending] = useState(null);
-
   const handleSend = async (invoiceId) => {
     if (!user?.token) return;
     setIsSending(invoiceId);
     try {
-      const response = await fetch(`https://billing-system-jk1c.onrender.com/api/invoices/${invoiceId}/send/`, {
+      const response = await fetch(`${API}/invoices/${invoiceId}/send/`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       if (response.ok) {
-        toast.success("Invoice sent to customer successfully!");
+        toast.success("Invoice transmitted successfully!");
         fetchInvoices();
-      } else {
-        toast.error("Failed to send invoice.");
       }
     } catch (err) {
-      toast.error("Error sending invoice.");
+      toast.error("Network error during transmission.");
     } finally {
       setIsSending(null);
     }
   };
 
   return (
-    <div className="animate-in fade-in duration-500 space-y-6">
-
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-xl shadow-inner">
-            <FileText size={28} />
+    <div className="animate-in fade-in duration-500 space-y-4">
+      {/* Dynamic Header */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg shadow-sm border border-indigo-100">
+            <FileText size={20} />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-slate-800 tracking-tight">Global Invoices Dashboard</h1>
-            <p className="text-sm font-medium text-slate-500">
-              {invoices.length} total &mdash;
-              {autoCount > 0 && <span className="ml-1 text-indigo-600 font-semibold">{autoCount} auto-generated from orders</span>}
-            </p>
+            <h1 className="text-lg font-bold text-slate-800 tracking-tight">Financial Ledger</h1>
+            <div className="flex items-center gap-2 mt-0.5">
+              <Badge variant="outline" className="rounded-md font-bold text-[9px] uppercase tracking-widest bg-slate-50 px-1.5 py-0 h-4">
+                {invoices.length} Registered Records
+              </Badge>
+              {autoCount > 0 && (
+                <div className="flex items-center gap-1 text-[10px] font-bold text-indigo-500">
+                  <Zap size={10} className="fill-indigo-500" />
+                  <span>{autoCount} Automated Syncs</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <Button onClick={fetchInvoices} variant="outline" className="gap-2 h-11 font-bold border-slate-200 text-slate-600">
-            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} /> Refresh
+        <div className="flex items-center gap-2 w-full lg:w-auto">
+          <Button onClick={fetchInvoices} variant="outline" className="rounded-lg gap-1.5 h-8 font-bold text-xs border-slate-200 text-slate-600 px-3">
+            <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} /> Sync
           </Button>
           {canEdit() && (
-            <Button onClick={() => navigate('/invoices/new')} className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-11 px-6 shadow-lg shadow-blue-100">
-              <Plus size={16} className="mr-1.5" /> New Invoice
+            <Button onClick={() => navigate('/invoices/new')} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-8 px-4 text-xs rounded-lg shadow-sm gap-1.5">
+              <Plus size={14} /> New Invoice
             </Button>
           )}
         </div>
       </div>
 
-      {/* ── Table Card ─────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-
-        {/* Toolbar */}
-        <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="relative w-full sm:max-w-md">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+      {/* Main Ledger Table */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+        {/* Advanced Toolbar */}
+        <div className="p-3 border-b border-slate-100 flex flex-col md:flex-row gap-3 items-center justify-between bg-slate-50/30">
+          <div className="relative w-full md:max-w-md group">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={14} />
             <Input
-              className="pl-11 h-11 border-slate-200 rounded-xl"
-              placeholder="Search by number, customer, status..."
+              className="pl-8 h-8 text-xs border-slate-200 rounded-lg bg-white focus-visible:ring-indigo-500/20 font-medium"
+              placeholder="Filter by invoice ID, entity name, or tracking reference..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
 
-          {/* Quick-filter tabs — mirrors Quotes exactly */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-sm font-semibold">
-            <button
-              onClick={() => setFilterMode('all')}
-              className={`px-3 py-1.5 rounded-md transition-all ${filterMode === 'all' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              All ({invoices.length})
-            </button>
-            <button
-              onClick={() => setFilterMode('auto')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-md transition-all ${filterMode === 'auto' ? 'bg-white shadow text-indigo-700' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              <Zap size={13} /> Auto ({autoCount})
-            </button>
-            <button
-              onClick={() => setFilterMode('manual')}
-              className={`px-3 py-1.5 rounded-md transition-all ${filterMode === 'manual' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              Manual ({manualCount})
-            </button>
+          <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-200 shadow-sm h-8">
+            {[
+              { id: 'all', label: 'All', count: invoices.length, icon: Filter },
+              { id: 'auto', label: 'Auto', count: autoCount, icon: Zap },
+              { id: 'manual', label: 'Manual', count: manualCount, icon: FileText }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setFilterMode(tab.id)}
+                className={cn(
+                  "flex items-center gap-1 px-3 py-1 rounded-md transition-all font-bold text-[9px] uppercase tracking-widest h-full",
+                  filterMode === tab.id 
+                    ? "bg-slate-900 text-white shadow-sm" 
+                    : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                )}
+              >
+                <tab.icon size={10} className={cn(filterMode === tab.id ? "text-white" : "text-slate-300")} />
+                {tab.label} ({tab.count})
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Loading skeleton */}
-        {isLoading && (
-          <div className="p-8 text-center text-slate-400 animate-pulse">
-            <RefreshCw size={32} className="mx-auto mb-2 opacity-30 animate-spin" />
-            <p className="text-sm">Loading invoices…</p>
-          </div>
-        )}
-
-        {/* Table */}
-        {!isLoading && (
-          <div className="overflow-x-auto w-full">
-            <table className="w-full text-left whitespace-nowrap">
-              <thead className="bg-slate-50 border-b border-slate-100">
-                <tr className="text-slate-500 text-[10px] font-black uppercase tracking-widest">
-                  <th className="p-5">Reference</th>
-                  <th className="p-5">Customer Identity</th>
-                  <th className="p-5">Issue Date</th>
-                  <th className="p-5 text-center">Current Status</th>
-                  <th className="p-5 text-right">Grand Total</th>
-                  <th className="p-5 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {displayedInvoices.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" className="p-20 text-center text-slate-400">
-                      <FileText size={56} className="mx-auto mb-4 opacity-10" />
-                      <p className="font-bold text-slate-600">No invoices found</p>
-                      <p className="text-sm mt-1">
-                        {searchQuery
-                          ? `No results for "${searchQuery}"`
-                          : 'Create a new invoice or place a small order from the Customer Portal.'}
-                      </p>
-                    </td>
-                  </tr>
-                ) : (
-                  displayedInvoices.map((inv) => (
-                    <tr
+        {/* Responsive Table Core */}
+        <div className="overflow-x-auto flex-1">
+          <Table>
+            <TableHeader className="bg-slate-50/50">
+              <TableRow className="hover:bg-transparent border-b border-slate-100 h-8">
+                <TableHead className="px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Record Identity</TableHead>
+                <TableHead className="px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Business Entity</TableHead>
+                <TableHead className="px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Timestamp</TableHead>
+                <TableHead className="px-3 py-1 text-center text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Accounting Status</TableHead>
+                <TableHead className="px-3 py-1 text-right text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Ledger Amount</TableHead>
+                <TableHead className="px-3 py-1 text-center text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Operations</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-slate-50">
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-32 text-center">
+                    <div className="flex flex-col items-center gap-2 opacity-30">
+                      <RefreshCw size={24} className="animate-spin text-indigo-500" />
+                      <p className="font-bold text-[10px] uppercase tracking-widest">Synchronizing Ledger...</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : displayedInvoices.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-48 text-center">
+                    <div className="flex flex-col items-center gap-2 opacity-40">
+                      <FileText size={40} className="text-slate-200" />
+                      <div className="space-y-0.5">
+                        <p className="font-bold text-slate-600 text-sm">No Invoices Detected</p>
+                        <p className="text-[10px] font-medium text-slate-400 max-w-xs mx-auto">No records found matching your current filter criteria in the central database.</p>
+                      </div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                displayedInvoices.map((inv) => {
+                  const statusConfig = getStatusConfig(inv.status);
+                  const StatusIcon = statusConfig.icon;
+                  return (
+                    <TableRow
                       key={inv.id}
-                      className={`hover:bg-slate-50/50 transition-colors group ${inv.is_auto_generated ? 'border-l-2 border-l-indigo-400' : ''}`}
+                      className={cn(
+                        "hover:bg-indigo-50/30 transition-all group h-10",
+                        inv.is_auto_generated && "border-l-4 border-l-indigo-500"
+                      )}
                     >
-                      {/* Reference cell */}
-                      <td className="p-5">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-2 h-2 rounded-full shadow-sm ${
-                              inv.status?.toLowerCase() === 'draft'
-                                ? 'bg-slate-300 shadow-slate-200'
-                                : inv.status?.toLowerCase() === 'sent'
-                                ? 'bg-blue-400 shadow-blue-300'
-                                : inv.status?.toLowerCase() === 'paid'
-                                ? 'bg-emerald-400 shadow-emerald-300'
-                                : inv.status?.toLowerCase() === 'overdue'
-                                ? 'bg-red-400 shadow-red-300'
-                                : 'bg-indigo-500 shadow-indigo-200'
-                            }`}
-                          />
+                      <TableCell className="px-3 py-1.5">
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            "w-7 h-7 rounded-md flex items-center justify-center shadow-sm border",
+                            inv.status?.toLowerCase() === 'paid' ? "bg-emerald-50 border-emerald-100 text-emerald-600" : "bg-slate-50 border-slate-100 text-slate-400"
+                          )}>
+                            <FileText size={12} />
+                          </div>
                           <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-black text-slate-800 leading-none">{inv.invoice_number}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-bold text-xs text-slate-800 tracking-tight leading-none">{inv.invoice_number}</p>
                               {inv.is_auto_generated && (
-                                <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 text-[10px] px-1.5 py-0 font-bold hover:bg-indigo-100">
-                                  <Zap size={9} className="mr-0.5" /> Auto
+                                <Badge className="bg-indigo-600 text-white border-none text-[8px] px-1 py-0 h-3 flex items-center justify-center font-bold rounded-sm">
+                                  AUTO
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">
-                              Ref: {inv.reference_number || 'N/A'}
+                            <p className="text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-widest">
+                              REF: {inv.reference_number || 'N/A'}
                             </p>
                           </div>
                         </div>
-                      </td>
+                      </TableCell>
 
-                      {/* Customer */}
-                      <td className="p-5">
-                        <p className="font-bold text-slate-700">{inv.customer_name || '—'}</p>
-                      </td>
+                      <TableCell className="px-3 py-1.5">
+                        <p className="font-bold text-slate-700 text-xs">{inv.customer_name || 'Individual Client'}</p>
+                      </TableCell>
 
-                      {/* Date */}
-                      <td className="p-5 text-sm font-medium text-slate-500">{inv.invoice_date || '—'}</td>
+                      <TableCell className="px-3 py-1.5">
+                        <div className="flex items-center gap-1.5 text-slate-500">
+                          <Calendar size={10} className="text-slate-300" />
+                          <span className="text-[10px] font-bold">{inv.invoice_date || '—'}</span>
+                        </div>
+                      </TableCell>
 
-                      {/* Status */}
-                      <td className="p-5 text-center">{getStatusBadge(inv.status)}</td>
+                      <TableCell className="px-3 py-1.5 text-center">
+                        <Badge className={cn("rounded-md font-bold text-[9px] uppercase tracking-widest px-1.5 py-0 h-4 gap-1", statusConfig.className)}>
+                          <StatusIcon size={10} />
+                          {statusConfig.label}
+                        </Badge>
+                      </TableCell>
 
-                      {/* Amount */}
-                      <td className="p-5 text-right">
-                        <p className="font-black text-blue-600 tracking-tight">
+                      <TableCell className="px-3 py-1.5 text-right">
+                        <p className="font-bold text-indigo-600 text-sm tracking-tight">
                           ₹{parseFloat(inv.grand_total || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </p>
-                      </td>
+                      </TableCell>
 
-                      {/* Actions — same sizing/spacing as Quotes */}
-                      <td className="p-5 text-center">
-                        <div className="flex items-center justify-center gap-2">
+                      <TableCell className="px-3 py-1.5">
+                        <div className="flex items-center justify-center gap-1">
                           {(inv.status === 'Draft' || inv.status === 'Auto-Generated' || !inv.status) && (
                             <Button
                               variant="ghost"
                               size="icon"
                               disabled={isSending === inv.id}
-                              className="h-8 w-8 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
-                              title="Send to Customer"
+                              className="h-7 w-7 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-transparent hover:border-indigo-100"
                               onClick={() => handleSend(inv.id)}
                             >
                               {isSending === inv.id ? (
-                                <RefreshCw size={14} className="animate-spin" />
+                                <RefreshCw size={12} className="animate-spin" />
                               ) : (
-                                <Send size={16} />
+                                <Send size={12} />
                               )}
                             </Button>
                           )}
@@ -332,38 +330,53 @@ export default function InvoicesTab() {
                             variant="ghost"
                             size="icon"
                             disabled={isDownloading === inv.invoice_number}
-                            className="h-8 w-8 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50"
-                            title="Download PDF"
+                            className="h-7 w-7 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 border border-transparent hover:border-blue-100"
                             onClick={(e) => handleDownload(e, inv.invoice_number)}
                           >
                             {isDownloading === inv.invoice_number ? (
-                              <RefreshCw size={14} className="animate-spin" />
+                              <RefreshCw size={12} className="animate-spin" />
                             ) : (
-                              <Download size={16} />
+                              <Download size={12} />
                             )}
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-                            title="More options"
-                          >
-                            <MoreHorizontal size={16} />
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+                                <MoreHorizontal size={12} />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="rounded-lg p-1 w-40">
+                              <DropdownMenuItem className="rounded-md font-bold text-[10px]" onClick={() => navigate(`/invoices/${inv.id}`)}>
+                                <Eye className="mr-2 h-3 w-3" /> View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="rounded-md font-bold text-[10px]">
+                                <ArrowUpRight className="mr-2 h-3 w-3" /> Export XML
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="rounded-md font-bold text-[10px] text-rose-600 focus:bg-rose-50">
+                                <AlertCircle className="mr-2 h-3 w-3" /> Mark Overdue
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
 
-        {/* Footer count — mirrors Quotes */}
+        {/* Detailed Footer Summary */}
         {!isLoading && displayedInvoices.length > 0 && (
-          <div className="p-3 border-t border-slate-100 text-xs text-slate-400 text-right pr-5">
-            Showing {displayedInvoices.length} of {invoices.length} invoices
+          <div className="p-6 bg-slate-50/50 border-t border-slate-100 flex justify-between items-center">
+             <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                Data Integrity Verified &bull; Active Ledger Registry
+             </div>
+             <div className="text-xs font-bold text-slate-500">
+                Displaying {displayedInvoices.length} of {invoices.length} Registered Invoices
+             </div>
           </div>
         )}
       </div>
