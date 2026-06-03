@@ -1,9 +1,13 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-load_dotenv()
+# .env is at project root (three levels above /backend/app/database/), resolve absolute path
+_env_path = Path(__file__).resolve().parent.parent.parent.parent / ".env"
+load_dotenv(dotenv_path=_env_path)
+
 
 # Existing DB credentials from .env
 DATABASE_URL = os.getenv("DATABASE_URL")

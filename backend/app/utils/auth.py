@@ -49,15 +49,25 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("username")
+        user_id: Optional[int] = payload.get("user_id")
         role: str = payload.get("role")
         if username is None:
             raise credentials_exception
         token_data = TokenData(username=username, role=role)
     except Exception:
         raise credentials_exception
-    user = db.query(User).filter(User.username == token_data.username).first()
-    if user is None:
-        raise credentials_exception
+        
+    if user_id is not None:
+        user = db.query(User).filter(User.id == user_id).first()
+    else:
+        user = db.query(User).filter(User.username == token_data.username).first()
+        
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or session expired. Please log in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return user
 
 async def get_current_active_user(current_user: User = Depends(get_current_user)):

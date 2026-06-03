@@ -16,13 +16,13 @@ export default function CartDrawer() {
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [address, setAddress] = useState({
     address_line: user?.address_line || '',
-    city: user?.city || '',
+    district: user?.district || '',
     state: user?.state || '',
     pincode: user?.pincode || '',
     gstin: user?.gstin || ''
   });
 
-  const isAddressMissing = !user?.address_line || !user?.city || !user?.pincode;
+  const isAddressMissing = !user?.address_line || !user?.district || !user?.pincode;
 
   const handleCheckout = async () => {
     if (!cartItems.length) return;
@@ -132,12 +132,12 @@ export default function CartDrawer() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-0.5">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">City</label>
+                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">District</label>
                     <input 
                       className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                      placeholder="City"
-                      value={address.city}
-                      onChange={e => setAddress({...address, city: e.target.value})}
+                      placeholder="Enter District Name (e.g. SIVAGANGA, CHENNAI)"
+                      value={address.district}
+                      onChange={e => setAddress({...address, district: e.target.value})}
                     />
                   </div>
                   <div className="space-y-0.5">

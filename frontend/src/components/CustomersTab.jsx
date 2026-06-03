@@ -312,7 +312,7 @@ export default function CustomersTab() {
                        <p className="text-sm text-slate-600 leading-relaxed font-medium">
                           {selectedCustomer.billing_address_1 || 'No primary address recorded'}<br/>
                           {selectedCustomer.billing_address_2 && <>{selectedCustomer.billing_address_2}<br/></>}
-                          {selectedCustomer.billing_city && <span className="font-bold text-slate-800">{selectedCustomer.billing_city}, </span>}
+                          {selectedCustomer.billing_district && <span className="font-bold text-slate-800">{selectedCustomer.billing_district}, </span>}
                           {selectedCustomer.billing_state && <span className="font-bold text-slate-800">{selectedCustomer.billing_state} </span>}
                           {selectedCustomer.billing_pincode && <Badge variant="secondary" className="ml-2 font-mono">{selectedCustomer.billing_pincode}</Badge>}
                        </p>

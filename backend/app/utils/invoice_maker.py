@@ -12,14 +12,14 @@ def generate_pdf_invoice(invoice_id, customer_email, items_list, tax_data=None, 
     Professional PDF Generator for Antigravity Billing.
     Supports Tax Breakdown, Signatory, Terms, and Logistics.
     """
-    print(f"\n⚙️ [Generator Engine] Building Professional Document {invoice_id}...")
+    print(f"\n[Generator Engine] Building Professional Document {invoice_id}...")
     
     # Math Engine
     df = pd.DataFrame(items_list)
 
     if df.empty:
         # Prevent crash if items_list is empty
-        print("⚠️ [Generator] Received empty items_list. Building empty table.")
+        print("[WARNING] [Generator] Received empty items_list. Building empty table.")
         df = pd.DataFrame(columns=['Item Name', 'Quantity', 'Price', 'Amount'])
 
     # Standardize column names (Safe-guard against case-sensitivity or key aliases)
@@ -40,7 +40,7 @@ def generate_pdf_invoice(invoice_id, customer_email, items_list, tax_data=None, 
     # Ensure mandatory columns exist before casting
     for col in ['Price', 'Quantity']:
         if col not in df.columns:
-            print(f"⚠️ [Generator] Missing '{col}' in data. Defaulting to 0.")
+            print(f"[WARNING] [Generator] Missing '{col}' in data. Defaulting to 0.")
             df[col] = 0.0
 
     df['Price'] = pd.to_numeric(df['Price'], errors='coerce').fillna(0).astype(float)
@@ -54,10 +54,10 @@ def generate_pdf_invoice(invoice_id, customer_email, items_list, tax_data=None, 
         subtotal = (df['Price'] * df['Quantity']).sum()
 
     if tax_data:
-        cgst = tax_data.get('cgst', 0)
-        sgst = tax_data.get('sgst', 0)
-        igst = tax_data.get('igst', 0)
-        grand_total = tax_data.get('grand_total', subtotal)
+        cgst = tax_data.get('cgst', 0) or 0.0
+        sgst = tax_data.get('sgst', 0) or 0.0
+        igst = tax_data.get('igst', 0) or 0.0
+        grand_total = tax_data.get('grand_total', subtotal) or subtotal
     else:
         total_gst = subtotal * 0.18
         cgst = total_gst / 2

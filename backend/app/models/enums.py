@@ -10,6 +10,8 @@ class UserRole(str, enum.Enum):
     accounts = "accounts"
     customer = "customer"
     driver = "driver"
+    delivery_agent = "delivery_agent"
+    delivery_management = "delivery_management"
 
 class OrderStatus(str, enum.Enum):
     Placed = "placed"

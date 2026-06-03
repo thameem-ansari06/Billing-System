@@ -15,7 +15,7 @@ function AddressBook({ userId }) {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
     catch { return []; }
   });
-  const [form, setForm] = useState({ label: '', line1: '', city: '', state: '', pincode: '' });
+  const [form, setForm] = useState({ label: '', line1: '', district: '', state: '', pincode: '' });
   const [adding, setAdding] = useState(false);
 
   const save = (updated) => {
@@ -24,12 +24,12 @@ function AddressBook({ userId }) {
   };
 
   const handleAdd = () => {
-    if (!form.line1.trim() || !form.city.trim()) {
-      toast.error('Please fill Address Line 1 and City.');
+    if (!form.line1.trim() || !form.district.trim()) {
+      toast.error('Please fill Address Line 1 and District.');
       return;
     }
     save([...addresses, { ...form, id: Date.now() }]);
-    setForm({ label: '', line1: '', city: '', state: '', pincode: '' });
+    setForm({ label: '', line1: '', district: '', state: '', pincode: '' });
     setAdding(false);
     toast.success('Address saved!');
   };
@@ -57,7 +57,7 @@ function AddressBook({ userId }) {
           {[
             { key: 'label',   placeholder: 'Label (e.g. Home, Office)', label: 'Label' },
             { key: 'line1',   placeholder: '123 Street, Area',           label: 'Address Line 1 *' },
-            { key: 'city',    placeholder: 'City *',                     label: 'City *' },
+            { key: 'district', placeholder: 'Enter District Name (e.g. SIVAGANGA, CHENNAI)', label: 'District *' },
             { key: 'state',   placeholder: 'State',                      label: 'State' },
             { key: 'pincode', placeholder: 'Pincode',                    label: 'Pincode' },
           ].map(f => (
@@ -97,7 +97,7 @@ function AddressBook({ userId }) {
             <div className="flex-1 min-w-0">
               {addr.label && <p className="font-bold text-xs text-slate-700">{addr.label}</p>}
               <p className="text-[10px] text-slate-500">{addr.line1}</p>
-              <p className="text-[10px] text-slate-500">{[addr.city, addr.state, addr.pincode].filter(Boolean).join(', ')}</p>
+              <p className="text-[10px] text-slate-500">{[addr.district, addr.state, addr.pincode].filter(Boolean).join(', ')}</p>
             </div>
             <button onClick={() => handleDelete(addr.id)} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition">
               <Trash2 size={14} />
@@ -123,7 +123,7 @@ export default function CustomerProfile() {
     email: '', 
     phone: '',
     address_line: '',
-    city: '',
+    district: '',
     state: '',
     pincode: '',
     gstin: ''
@@ -145,7 +145,7 @@ export default function CustomerProfile() {
           email:        res.data.email     || '',
           phone:        res.data.phone     || '',
           address_line: res.data.address_line || '',
-          city:         res.data.city || '',
+          district:     res.data.district || '',
           state:        res.data.state || '',
           pincode:      res.data.pincode || '',
           gstin:        res.data.gstin || ''
@@ -177,7 +177,7 @@ export default function CustomerProfile() {
         email:        profile.email     || '',
         phone:        profile.phone     || '',
         address_line: profile.address_line || '',
-        city:         profile.city || '',
+        district:     profile.district || '',
         state:        profile.state || '',
         pincode:      profile.pincode || '',
         gstin:        profile.gstin || ''
@@ -219,15 +219,19 @@ export default function CustomerProfile() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4 animate-in fade-in duration-500">
-      {/* Profile Header */}
-      <div className="bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl p-4 text-white flex items-center gap-4 shadow-md shadow-indigo-500/20">
-        <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-xl font-bold uppercase flex-shrink-0">
+      {/* Profile Header (Compact) */}
+      <div className="bg-gradient-to-br from-indigo-600 to-violet-600 rounded-lg p-2.5 text-white flex items-center gap-3 shadow-sm">
+        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-lg font-bold uppercase flex-shrink-0">
           {(profile?.full_name || profile?.username || user?.username || '?')[0].toUpperCase()}
         </div>
-        <div>
-          <p className="text-indigo-200 text-[9px] font-bold uppercase tracking-widest">My Account</p>
-          <h1 className="text-lg font-bold mt-0.5">{profile?.full_name || profile?.username || user?.username}</h1>
-          <p className="text-indigo-200 text-[10px] mt-0.5 capitalize">Role: {profile?.role || user?.role}</p>
+        <div className="flex-1 flex flex-col justify-center">
+          <div className="flex items-center gap-2">
+             <h1 className="text-sm font-bold leading-none">{profile?.full_name || profile?.username || user?.username}</h1>
+             <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded uppercase tracking-widest font-bold leading-none">
+                {profile?.role || user?.role}
+             </span>
+          </div>
+          <p className="text-indigo-200 text-[10px] mt-1 font-medium leading-none">{profile?.email || 'No email provided'}</p>
         </div>
       </div>
 
@@ -264,47 +268,47 @@ export default function CustomerProfile() {
           </div>
 
           {!isEditing ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-              <div className="space-y-1 md:col-span-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <div className="space-y-0.5 md:col-span-1">
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Username</p>
                 <p className="text-xs font-bold text-slate-800">{profile?.username || user?.username}</p>
               </div>
 
               {[
-                { label: 'Full Name',    value: profile?.full_name, col: 'md:col-span-2' },
+                { label: 'Full Name',    value: profile?.full_name, col: 'md:col-span-1' },
                 { label: 'Email Address',value: profile?.email,     col: 'md:col-span-1' },
                 { label: 'Phone Number', value: profile?.phone,     col: 'md:col-span-1' },
                 { label: 'Address Line', value: profile?.address_line, col: 'md:col-span-2' },
-                { label: 'City',         value: profile?.city,      col: 'md:col-span-1' },
+                { label: 'District',     value: profile?.district,  col: 'md:col-span-1' },
                 { label: 'State',        value: profile?.state,     col: 'md:col-span-1' },
                 { label: 'Pincode',      value: profile?.pincode,   col: 'md:col-span-1' },
                 { label: 'GSTIN',        value: profile?.gstin,     col: 'md:col-span-1' },
               ].map(f => (
                 <div key={f.label} className={`space-y-0.5 ${f.col}`}>
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{f.label}</p>
-                  <p className="text-xs font-bold text-slate-800">{f.value || <span className="text-slate-300 italic font-medium">Not provided</span>}</p>
+                  <p className="text-xs font-bold text-slate-800 truncate">{f.value || <span className="text-slate-300 italic font-medium">N/A</span>}</p>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-500">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-1 md:col-span-2">
+            <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-500">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="space-y-0.5 md:col-span-1">
                   <label className="text-[10px] font-bold text-slate-500 block">Username (read-only)</label>
                   <input value={profile?.username || user?.username || ''} disabled className={`${inputCls} bg-slate-50 text-slate-400 cursor-not-allowed`} />
                 </div>
 
                 {[
-                  { key: 'full_name', label: 'Full Name',    icon: <User  size={14} />, placeholder: 'Your full name', col: 'md:col-span-2' },
-                  { key: 'email',     label: 'Email Address',icon: <Mail  size={14} />, placeholder: 'you@example.com', col: 'md:col-span-1' },
-                  { key: 'phone',     label: 'Phone Number', icon: <Phone size={14} />, placeholder: '+91 98765 43210', col: 'md:col-span-1' },
-                  { key: 'address_line', label: 'Address Line', icon: <MapPin size={14} />, placeholder: 'Building, Street...', col: 'md:col-span-2' },
-                  { key: 'city',      label: 'City',         icon: <MapPin size={14} />, placeholder: 'City', col: 'md:col-span-1' },
+                  { key: 'full_name', label: 'Full Name',    icon: <User  size={14} />, placeholder: 'Full name', col: 'md:col-span-1' },
+                  { key: 'email',     label: 'Email',        icon: <Mail  size={14} />, placeholder: 'Email', col: 'md:col-span-1' },
+                  { key: 'phone',     label: 'Phone',        icon: <Phone size={14} />, placeholder: 'Phone', col: 'md:col-span-1' },
+                  { key: 'address_line', label: 'Address Line', icon: <MapPin size={14} />, placeholder: 'Address', col: 'md:col-span-2' },
+                  { key: 'district',  label: 'District',     icon: <MapPin size={14} />, placeholder: 'Enter District Name (e.g. SIVAGANGA, CHENNAI)', col: 'md:col-span-1' },
                   { key: 'state',     label: 'State',        icon: <MapPin size={14} />, placeholder: 'State', col: 'md:col-span-1' },
                   { key: 'pincode',   label: 'Pincode',      icon: <MapPin size={14} />, placeholder: 'Pincode', col: 'md:col-span-1' },
-                  { key: 'gstin',     label: 'GSTIN',        icon: <ShieldCheck size={14} />, placeholder: '22AAAAA0000A1Z5', col: 'md:col-span-1' },
+                  { key: 'gstin',     label: 'GSTIN',        icon: <ShieldCheck size={14} />, placeholder: 'GSTIN', col: 'md:col-span-1' },
                 ].map(f => (
-                  <div key={f.key} className={`space-y-1 ${f.col}`}>
+                  <div key={f.key} className={`space-y-0.5 ${f.col}`}>
                     <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1">{f.icon} {f.label}</label>
                     <input
                       value={form[f.key]}

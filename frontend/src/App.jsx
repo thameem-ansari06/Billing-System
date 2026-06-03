@@ -24,6 +24,8 @@ import StaffManagement from './components/StaffManagement';
 import Settings from './components/Settings';
 import Login from './components/Login';
 import Signup from './components/Signup';
+import AdminChatbot from './components/AdminChatbot';
+import ZoneLogisticsDashboard from './components/ZoneLogisticsDashboard';
 
 // Customer Portal Components
 import CustomerDashboard from './components/customer/CustomerDashboard';
@@ -50,6 +52,21 @@ const RoleRoute = ({ userEl, adminEl }) => {
   const { user } = useAuth();
   if (user?.role === 'user' || user?.role === 'customer') return userEl;
   return adminEl;
+};
+
+// ── Dynamic landing page redirect per user role ───────────────────────────────
+const HomeRedirect = () => {
+  const { user } = useAuth();
+  if (user?.role === 'delivery' || user?.role === 'driver') {
+    return <Navigate to="/driver/dashboard" replace />;
+  }
+  if (user?.role === 'delivery_management') {
+    return <Navigate to="/delivery-tasks" replace />;
+  }
+  if (user?.role === 'user' || user?.role === 'customer') {
+    return <Navigate to="/customer/catalog" replace />;
+  }
+  return <Navigate to="/dashboard" replace />;
 };
 
 // ── Protected Route guard ────────────────────────────────────────────────────
@@ -110,6 +127,7 @@ function App() {
             <Route element={
               <ProtectedRoute>
                 <div className="flex h-screen bg-slate-50 font-sans relative">
+                  <Sidebar />
                   <div className="flex-1 flex flex-col overflow-hidden">
                     <TopHeader />
                     <main className="flex-1 overflow-auto p-2 md:p-4 relative">
@@ -118,10 +136,14 @@ function App() {
                   </div>
                   {/* Cart drawer renders on top of everything, only meaningful for 'user' role */}
                   <CartDrawer />
+                  
+                  {/* 🚀 AI Chatbot Layer Trigger Tag */}
+                  <AdminChatbot />
                 </div>
               </ProtectedRoute>
             }>
-              <Route path="/" element={<Navigate to="/dashboard" />} />
+               
+              <Route path="/" element={<HomeRedirect />} />
 
               {/* Role-split routes */}
               <Route path="/dashboard" element={<RoleRoute userEl={<CustomerDashboard />} adminEl={<DashboardTab />} />} />
@@ -144,6 +166,7 @@ function App() {
               <Route path="/invoices"             element={<InvoicesTab />} />
               <Route path="/invoices/new"         element={<CreateInvoice />} />
               <Route path="/delivery-tasks"       element={<DeliveryTasks />} />
+              <Route path="/logistics-dashboard"   element={<ZoneLogisticsDashboard />} />
               <Route path="/quotes"               element={<AdminQuotes />} />
               <Route path="/quotes/new"           element={<CreateQuote />} />
               <Route path="/delivery-challans"    element={<DeliveryChallansTab />} />

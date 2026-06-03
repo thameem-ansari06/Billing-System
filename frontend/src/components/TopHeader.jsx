@@ -35,7 +35,7 @@ const TopHeader = () => {
         {/* Mobile Sidebar Trigger */}
         <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-slate-600 hover:bg-slate-100 rounded-lg h-8 w-8">
+            <Button variant="ghost" size="icon" className="text-slate-600 hover:bg-slate-100 rounded-lg h-8 w-8 md:hidden">
               <Menu className="h-4 w-4" />
             </Button>
           </SheetTrigger>

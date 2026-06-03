@@ -113,7 +113,7 @@ export default function AdminCustomers() {
                     </td>
                     <td className="px-3 py-1.5">
                       <div className="flex items-center gap-1.5 text-[10px] text-slate-600 font-medium">
-                        <MapPin size={10} className="text-indigo-400"/> {c.city || 'Location unset'}
+                        <MapPin size={10} className="text-indigo-400"/> {c.district || 'Location unset'}
                       </div>
                     </td>
                     <td className="px-3 py-1.5 text-center">
@@ -161,7 +161,7 @@ export default function AdminCustomers() {
                               <p className="font-bold text-slate-700 text-[10px]">Residential Address</p>
                               <p className="text-slate-500 text-[10px] leading-tight mt-0.5">
                                  {selectedCustomer.address_line || 'No address provided'}<br/>
-                                 {selectedCustomer.city && `${selectedCustomer.city}, ${selectedCustomer.state} ${selectedCustomer.pincode}`}
+                                 {selectedCustomer.district && `${selectedCustomer.district}, ${selectedCustomer.state} ${selectedCustomer.pincode}`}
                               </p>
                            </div>
                         </div>

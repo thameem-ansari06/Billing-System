@@ -46,8 +46,8 @@ def update_me(
         current_user.phone = update.phone
     if update.address_line is not None:
         current_user.address_line = update.address_line
-    if update.city is not None:
-        current_user.city = update.city
+    if update.district is not None:
+        current_user.district = update.district
     if update.state is not None:
         current_user.state = update.state
     if update.pincode is not None:

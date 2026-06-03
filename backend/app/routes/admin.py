@@ -14,7 +14,7 @@ from app.models.orm import (
     DeliveryTask, Quote, QuoteItem, DeliveryChallan, 
     ChallanItem, ActivityLog, Payment
 )
-from app.models.schemas import UserRead, DashboardStats, ActivityLogRead, StaffCreate, FactoryResetRequest, SelectiveResetRequest
+from app.models.schemas import UserRead, DashboardStats, ActivityLogRead, StaffCreate, StaffUpdate, FactoryResetRequest, SelectiveResetRequest
 from app.utils.auth import get_current_active_user, get_password_hash, verify_password
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -53,12 +53,30 @@ def get_dashboard_stats(
     
     monthly_sales = [{"month": row.month, "sales": row.total} for row in monthly_sales_query]
 
+    # Calculate precise real-time database metrics
+    total_customers = db.query(User).filter(User.role == UserRole.user).count()
+    
+    total_products_count = db.query(Product).filter(Product.is_deleted == False).count()
+    
+    paid_invoices_count = db.query(Invoice).filter(Invoice.status == "Paid").count()
+    
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    overdue_invoices_count = db.query(Invoice).filter(
+        Invoice.status.in_(["Sent", "Accepted"]),
+        Invoice.due_date < today_str,
+        Invoice.amount_paid < Invoice.grand_total
+    ).count()
+ 
     return {
         "total_revenue": total_revenue,
         "pending_invoices_count": pending_invoices_count,
         "active_delivery_tasks_count": active_delivery_tasks_count,
         "low_stock_products_count": low_stock_products_count,
-        "monthly_sales": monthly_sales
+        "monthly_sales": monthly_sales,
+        "total_customers": total_customers,
+        "total_products_count": total_products_count,
+        "paid_invoices_count": paid_invoices_count,
+        "overdue_invoices_count": overdue_invoices_count
     }
 
 @router.get("/activity-logs", response_model=List[ActivityLogRead])
@@ -169,13 +187,62 @@ def add_new_staff(
         role=staff_data.role,
         hashed_password=get_password_hash(staff_data.password),
         full_name=staff_data.username, # Default
-        account_type="staff"
+        account_type="staff",
+        assigned_zone_code=staff_data.assigned_zone_code if (staff_data.assigned_zone_code and staff_data.assigned_zone_code.strip().lower() != 'none') else None,
+        is_available=staff_data.is_available if staff_data.is_available is not None else True
     )
     
     db.add(new_staff)
     db.commit()
     db.refresh(new_staff)
     return new_staff
+
+@router.put("/staff/{staff_id}", response_model=UserRead)
+def update_staff(
+    staff_id: int,
+    update_data: StaffUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    if current_user.role not in [UserRole.admin, UserRole.ceo]:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+        
+    staff_member = db.query(User).filter(User.id == staff_id).first()
+    if not staff_member or staff_member.role in [UserRole.user, UserRole.customer]:
+        raise HTTPException(status_code=404, detail="Staff member not found")
+        
+    # Check if username or email is already taken by someone else
+    if update_data.username is not None and update_data.username != staff_member.username:
+        existing = db.query(User).filter(User.username == update_data.username).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Username is already taken")
+        staff_member.username = update_data.username
+        
+    if update_data.email is not None and update_data.email != staff_member.email:
+        existing = db.query(User).filter(User.email == update_data.email).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Email is already registered")
+        staff_member.email = update_data.email
+        
+    if update_data.role is not None:
+        staff_member.role = update_data.role
+        
+    if update_data.assigned_zone_code is not None:
+        zone_code = update_data.assigned_zone_code.strip()
+        if zone_code.lower() in ["none", ""]:
+            staff_member.assigned_zone_code = None
+        else:
+            staff_member.assigned_zone_code = zone_code
+            
+    if update_data.is_available is not None:
+        staff_member.is_available = update_data.is_available
+        
+    if update_data.password is not None and update_data.password.strip() != "":
+        staff_member.hashed_password = get_password_hash(update_data.password)
+        
+    db.commit()
+    db.refresh(staff_member)
+    return staff_member
 
 @router.post("/factory-reset")
 def factory_reset(
@@ -334,7 +401,27 @@ def selective_reset(
             
         # Special handling for User records (Customers/Staff)
         if request_data.customers:
+            # Step 1: Delete all delivery tasks linked to these users' orders
+            db.execute(text("""
+                DELETE FROM delivery_tasks 
+                WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (SELECT id FROM users WHERE role = 'user'));
+            """))
+            
+            # Step 2: Delete all invoices linked to these users' orders
+            db.execute(text("""
+                DELETE FROM invoices 
+                WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (SELECT id FROM users WHERE role = 'user'));
+            """))
+            
+            # Step 3: Delete the orders themselves
+            db.execute(text("""
+                DELETE FROM orders 
+                WHERE user_id IN (SELECT id FROM users WHERE role = 'user');
+            """))
+            
+            # Step 4: Safely delete the users now that all child constraints are removed
             db.execute(text("DELETE FROM users WHERE role = 'user';"))
+
 
         db.commit()
         return {"message": f"Successfully reset selected categories: {', '.join(tables_to_truncate)}"}

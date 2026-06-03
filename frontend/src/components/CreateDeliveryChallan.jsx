@@ -86,7 +86,7 @@ export default function CreateDeliveryChallan() {
           customer.shipping_attention,
           customer.shipping_address_1,
           customer.shipping_address_2,
-          customer.shipping_city,
+          customer.shipping_district,
           customer.shipping_state,
           customer.shipping_pincode,
           customer.shipping_country
@@ -126,7 +126,7 @@ export default function CreateDeliveryChallan() {
         selectedCust.shipping_attention,
         selectedCust.shipping_address_1,
         selectedCust.shipping_address_2,
-        selectedCust.shipping_city,
+        selectedCust.shipping_district,
         selectedCust.shipping_state,
         selectedCust.shipping_pincode,
         selectedCust.shipping_country

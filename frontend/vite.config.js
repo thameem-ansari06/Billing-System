@@ -1,4 +1,4 @@
-import path from "path" // Intha line kandaipa irukkanum
+import path from "path" //
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 
@@ -10,7 +10,6 @@ export default defineConfig({
         },
     },
     server: {
-        // Namma munnadi discuss panna ngrok settings-aiyum inga sethukonga
         allowedHosts: true,
     }
 })

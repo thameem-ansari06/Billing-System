@@ -192,7 +192,11 @@ def create_customer_order(
         new_order.status = OrderStatus.Invoiced
 
     db.commit()
-    return {"routing": routing_decision, "order": OrderRead.model_validate(new_order)}
+    return {
+        "routing": routing_decision, 
+        "order": OrderRead.model_validate(new_order),
+        "item_count": item_count
+    }
 
 # ─── SECTION 2: DYNAMIC ID ROUTES (PLACED LAST) ──────────────────────────
 

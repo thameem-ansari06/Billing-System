@@ -1,9 +1,20 @@
 from sqlalchemy import Column, Integer, String, Float, Text, ForeignKey, DateTime, Boolean, Enum
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, validates
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import JSONB
 from app.database.db import Base
 import enum
+
+TAMIL_NADU_DISTRICTS = {
+    'Chennai', 'Chengalpattu', 'Cuddalore', 'Kanchipuram', 'Kallakurichi', 'Ranipet', 
+    'Tirupattur', 'Tiruvallur', 'Tiruvannamalai', 'Vellore', 'Viluppuram', 'Coimbatore', 
+    'Dharmapuri', 'Erode', 'Krishnagiri', 'Namakkal', 'Nilgiris', 'Salem', 'Tiruppur', 
+    'Karur', 'Dindigul', 'Kanyakumari', 'Madurai', 'Ramanathapuram', 'Sivagangai', 
+    'Tenkasi', 'Theni', 'Thoothukudi', 'Tirunelveli', 'Virudhunagar', 'Ariyalur', 
+    'Mayiladuthurai', 'Nagapattinam', 'Perambalur', 'Pudukkottai', 'Thanjavur', 
+    'Tiruchirappalli', 'Tiruvarur'
+}
+
 
 from .enums import UserRole, OrderStatus, DeliveryStatus, PaymentMethod, PaymentStatus
 
@@ -18,7 +29,7 @@ class User(Base):
     email = Column(String, nullable=True)
     phone = Column(String, nullable=True)
     address_line = Column(String, nullable=True)
-    city = Column(String, nullable=True)
+    district = Column(String, nullable=True)
     state = Column(String, nullable=True)
     pincode = Column(String, nullable=True)
     gstin = Column(String, nullable=True)
@@ -31,9 +42,39 @@ class User(Base):
     business_address = Column(String, nullable=True)
     document_url = Column(String, nullable=True)
     wallet_balance = Column(Float, default=0.0)
+    assigned_zone_code = Column(String, nullable=True)
+    is_available = Column(Boolean, default=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     payments = relationship("Payment", back_populates="customer")
+
+    @validates("district")
+    def validate_district(self, key, value):
+        if value is not None and value != "":
+            cleaned = value.strip()
+            if cleaned.lower() not in {d.lower() for d in TAMIL_NADU_DISTRICTS}:
+                raise ValueError(f"Invalid Tamil Nadu district name: '{value}'")
+            for d in TAMIL_NADU_DISTRICTS:
+                if d.lower() == cleaned.lower():
+                    return d
+        return value
+
+
+class ZoneRegistry(Base):
+    __tablename__ = "zone_registry"
+
+    id = Column(Integer, primary_key=True, index=True)
+    zone_code = Column(String, unique=True, index=True, nullable=False)
+    zone_name = Column(String, nullable=False)
+
+class DistrictZoneMapping(Base):
+    __tablename__ = "district_zone_mapping"
+
+    id = Column(Integer, primary_key=True, index=True)
+    district_name = Column(String, unique=True, index=True, nullable=False)
+    zone_id = Column(Integer, ForeignKey("zone_registry.id"), nullable=False)
+
+    zone = relationship("ZoneRegistry")
 
 class Order(Base):
     __tablename__ = "orders"
@@ -93,7 +134,7 @@ class Customer(Base):
     billing_country = Column(String, default="India")
     billing_address_1 = Column(String)
     billing_address_2 = Column(String)
-    billing_city = Column(String)
+    billing_district = Column(String)
     billing_state = Column(String)
     billing_pincode = Column(String)
     billing_phone = Column(String)
@@ -104,16 +145,53 @@ class Customer(Base):
     shipping_country = Column(String, default="India")
     shipping_address_1 = Column(String)
     shipping_address_2 = Column(String)
-    shipping_city = Column(String)
+    shipping_district = Column(String)
     shipping_state = Column(String)
     shipping_pincode = Column(String)
     shipping_phone = Column(String)
     shipping_fax = Column(String)
+
+    # General District
+    district = Column(String, nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
     contact_persons = relationship("ContactPerson", back_populates="customer", cascade="all, delete-orphan")
+
+    @validates("district")
+    def validate_district(self, key, value):
+        if value is not None and value != "":
+            cleaned = value.strip()
+            if cleaned.lower() not in {d.lower() for d in TAMIL_NADU_DISTRICTS}:
+                raise ValueError(f"Invalid Tamil Nadu district name: '{value}'")
+            for d in TAMIL_NADU_DISTRICTS:
+                if d.lower() == cleaned.lower():
+                    return d
+        return value
+
+    @validates("billing_district")
+    def validate_billing_district(self, key, value):
+        if value is not None and value != "":
+            cleaned = value.strip()
+            if cleaned.lower() not in {d.lower() for d in TAMIL_NADU_DISTRICTS}:
+                raise ValueError(f"Invalid Tamil Nadu billing district name: '{value}'")
+            for d in TAMIL_NADU_DISTRICTS:
+                if d.lower() == cleaned.lower():
+                    return d
+        return value
+
+    @validates("shipping_district")
+    def validate_shipping_district(self, key, value):
+        if value is not None and value != "":
+            cleaned = value.strip()
+            if cleaned.lower() not in {d.lower() for d in TAMIL_NADU_DISTRICTS}:
+                raise ValueError(f"Invalid Tamil Nadu shipping district name: '{value}'")
+            for d in TAMIL_NADU_DISTRICTS:
+                if d.lower() == cleaned.lower():
+                    return d
+        return value
+
 
 class ContactPerson(Base):
     __tablename__ = "contact_persons"
@@ -185,12 +263,25 @@ class Invoice(Base):
     related_challan_id = Column(Integer, ForeignKey("delivery_challans.id"), nullable=True)
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    customer_district = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     order = relationship("Order", back_populates="invoices")
     user = relationship("User")
     items = relationship("InvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
     delivery_tasks = relationship("DeliveryTask", back_populates="invoice")
+
+    @validates("customer_district")
+    def validate_customer_district(self, key, value):
+        if value is not None and value != "":
+            cleaned = value.strip()
+            if cleaned.lower() not in {d.lower() for d in TAMIL_NADU_DISTRICTS}:
+                raise ValueError(f"Invalid Tamil Nadu customer district name: '{value}'")
+            for d in TAMIL_NADU_DISTRICTS:
+                if d.lower() == cleaned.lower():
+                    return d
+        return value
+
 
 class Advance(Base):
     __tablename__ = "advances"
@@ -236,8 +327,12 @@ class DeliveryTask(Base):
     __tablename__ = "delivery_tasks"
 
     id = Column(Integer, primary_key=True, index=True)
-    invoice_id = Column(Integer, ForeignKey("invoices.id"))
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
+    invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=True)
     driver_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    zone_id = Column(Integer, ForeignKey("zone_registry.id", ondelete="SET NULL"), nullable=True)
+    delivery_agent_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    assignment_status = Column(String, default="Pending_Pooling")
     customer_name = Column(String)
     customer_address = Column(String)
     contact_number = Column(String)
@@ -253,11 +348,28 @@ class DeliveryTask(Base):
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
     batch_id = Column(Integer, ForeignKey("delivery_batches.id"), nullable=True)
+    customer_district = Column(String, nullable=True)
+    assignment_status_or_zone = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     invoice = relationship("Invoice", back_populates="delivery_tasks")
     driver = relationship("User", foreign_keys=[driver_id])
     batch = relationship("DeliveryBatch", back_populates="tasks")
+    order = relationship("Order")
+    zone = relationship("ZoneRegistry")
+    delivery_agent = relationship("User", foreign_keys=[delivery_agent_id])
+
+    @validates("customer_district")
+    def validate_customer_district(self, key, value):
+        if value is not None and value != "":
+            cleaned = value.strip()
+            if cleaned.lower() not in {d.lower() for d in TAMIL_NADU_DISTRICTS}:
+                raise ValueError(f"Invalid Tamil Nadu customer district name: '{value}'")
+            for d in TAMIL_NADU_DISTRICTS:
+                if d.lower() == cleaned.lower():
+                    return d
+        return value
+
 
     @property
     def sync_invoice_number(self):

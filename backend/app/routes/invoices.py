@@ -1,12 +1,12 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 from typing import List
 import os
 from datetime import datetime
 from app.database.db import get_db, get_next_id
-from app.models.orm import Invoice, InvoiceItem, DeliveryTask, ActivityLog
+from app.models.orm import Invoice, InvoiceItem, DeliveryTask, ActivityLog, DistrictZoneMapping, Order
 from app.models.schemas import InvoiceCreate, InvoiceRead
 from app.utils.invoice_maker import generate_pdf_invoice
 # from app.utils.email_bot import send_invoice_mail # Commented out as in original
@@ -14,6 +14,7 @@ from app.utils.invoice_maker import generate_pdf_invoice
 from app.utils.calculations import calculate_gst_totals
 from app.utils.auth import get_current_active_user
 from app.models.orm import User, Advance
+from app.models.enums import OrderStatus, DeliveryStatus
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
@@ -68,6 +69,79 @@ def get_invoice_by_number(invoice_number: str, db: Session = Depends(get_db), cu
         raise HTTPException(status_code=404, detail="Invoice not found")
     return invoice
 
+def generate_invoice_pdf_internal(invoice_number: str, db: Session):
+    """
+    Helper function to generate PDF invoice file and save it to the static/invoices directory.
+    """
+    db_invoice = db.query(Invoice).filter(Invoice.invoice_number == invoice_number).first()
+    if not db_invoice:
+        raise HTTPException(status_code=404, detail=f"Invoice {invoice_number} not found.")
+
+    safe_filename = invoice_number.replace("/", "_").replace("\\", "_") + ".pdf"
+    output_dir = os.path.join(os.getcwd(), "static", "invoices")
+    os.makedirs(output_dir, exist_ok=True)
+    file_path = os.path.join(output_dir, safe_filename)
+
+    from app.utils.calculations import calculate_gst_totals
+    from app.utils.invoice_maker import generate_pdf_invoice
+    
+    items_list = [{
+        "Item Name": item.item_details,
+        "Quantity": item.quantity,
+        "Price": item.rate,
+        "Amount": item.amount
+    } for item in db_invoice.items]
+
+    calc = {
+        "subtotal": db_invoice.subtotal,
+        "cgst": db_invoice.cgst,
+        "sgst": db_invoice.sgst,
+        "igst": db_invoice.igst,
+        "grand_total": db_invoice.grand_total,
+        "settled_amount": db_invoice.settled_amount,
+        "amount_paid": db_invoice.amount_paid
+    }
+
+    generate_pdf_invoice(
+        invoice_id=db_invoice.invoice_number,
+        customer_email=db_invoice.email or "N/A",
+        items_list=items_list,
+        tax_data=calc,
+        terms=db_invoice.terms_conditions,
+        customer_company_name=db_invoice.customer_company_name,
+        customer_gst_no=db_invoice.customer_gst_no
+    )
+
+@router.get("/view/{invoice_number:path}")
+def view_invoice_pdf(
+    invoice_number: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Serves the invoice PDF document stream. If the physical file is missing but the entity
+    exists in the database, it self-heals by regenerating the missing PDF.
+    """
+    invoice = db.query(Invoice).filter(Invoice.invoice_number == invoice_number).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+        
+    if current_user.role not in ["admin", "ceo", "sales"] and invoice.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    safe_filename = invoice_number.replace("/", "_").replace("\\", "_") + ".pdf"
+    file_path = os.path.join(os.getcwd(), "static", "invoices", safe_filename)
+
+    if not os.path.exists(file_path):
+        # Self-healing hook: Trigger the generator pipeline dynamically to recreate the missing file asset
+        try:
+            generate_invoice_pdf_internal(invoice_number, db)
+        except Exception as e:
+            print(f"[PDF SELF-HEALING GENERATION ERROR] {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to generate PDF: {str(e)}")
+
+    return FileResponse(file_path, media_type="application/pdf", filename=safe_filename)
+
 @router.post("/generate/{invoice_id:path}/")
 def generate_invoice_pdf(
     invoice_id: str,
@@ -76,55 +150,30 @@ def generate_invoice_pdf(
 ):
     """
     Triggers PDF generation if missing, and returns a static JSON URL.
-    Migrated from dynamic streaming to Save-to-Disk model.
+    Migrated from dynamic streaming to Save-to-Disk model with robust guardrails.
     """
     if current_user.role not in ["admin", "ceo", "sales"]:
         raise HTTPException(status_code=403, detail="Unauthorized")
 
-    # 1. Fetch Invoice Data from DB
+    # Fetch Invoice Data from DB with Validation Guardrail
     db_invoice = db.query(Invoice).filter(Invoice.invoice_number == invoice_id).first()
     if not db_invoice:
-        raise HTTPException(status_code=404, detail="Invoice record not found in database")
+        raise HTTPException(status_code=404, detail=f"Invoice {invoice_id} not found.")
 
-    # 2. Path & Filename logic (matching invoice_maker.py)
     safe_filename = invoice_id.replace("/", "_").replace("\\", "_") + ".pdf"
-    file_path = os.path.join("static", "invoices", safe_filename)
+    output_dir = os.path.join(os.getcwd(), "static", "invoices")
+    os.makedirs(output_dir, exist_ok=True)
+    file_path = os.path.join(output_dir, safe_filename)
     file_url = f"/static/invoices/{safe_filename}"
 
-    # 3. Check if file exists, if not generate it
+    # Check if file exists, if not generate it safely
     if not os.path.exists(file_path):
-        from app.utils.calculations import calculate_gst_totals
-        from app.utils.invoice_maker import generate_pdf_invoice
-        
-        items_list = [{
-            "Item Name": item.item_details,
-            "Quantity": item.quantity,
-            "Price": item.rate,
-            "Amount": item.amount
-        } for item in db_invoice.items]
+        try:
+            generate_invoice_pdf_internal(invoice_id, db)
+        except Exception as e:
+            print(f"[PDF GENERATION ERROR] {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to generate PDF: {str(e)}")
 
-        # Use DB values for consistency, especially for B2B Smart Invoicing
-        calc = {
-            "subtotal": db_invoice.subtotal,
-            "cgst": db_invoice.cgst,
-            "sgst": db_invoice.sgst,
-            "igst": db_invoice.igst,
-            "grand_total": db_invoice.grand_total,
-            "settled_amount": db_invoice.settled_amount,
-            "amount_paid": db_invoice.amount_paid
-        }
-
-        generate_pdf_invoice(
-            invoice_id=db_invoice.invoice_number,
-            customer_email=db_invoice.email or "N/A",
-            items_list=items_list,
-            tax_data=calc,
-            terms=db_invoice.terms_conditions,
-            customer_company_name=db_invoice.customer_company_name,
-            customer_gst_no=db_invoice.customer_gst_no
-        )
-
-    # 4. Return JSON URL instead of FileResponse
     return {"file_url": file_url}
 
 @router.put("/{invoice_id}/send/")
@@ -176,7 +225,7 @@ def customer_invoice_decision(
         # 🚚 AUTO-DELIVERY HANDSHAKE & CHALLAN GENERATION
         # Fetch customer's full profile for logistics
         customer = db.query(User).filter(User.id == invoice.user_id).first()
-        full_address = f"{customer.address_line}, {customer.city}, {customer.state} - {customer.pincode}" if (customer and customer.address_line) else invoice.place_of_supply
+        full_address = f"{customer.address_line}, {customer.district}, {customer.state} - {customer.pincode}" if (customer and customer.address_line) else invoice.place_of_supply
         
         # Pull contact from User profile or fallback to a placeholder
         contact_phone = customer.phone if (customer and customer.phone) else "Not Provided"
@@ -196,15 +245,78 @@ def customer_invoice_decision(
 
         invoice.challan_url = challan_url
 
+        # Resolve parent order_id to satisfy strict NOT NULL constraint on DeliveryTask
+        resolved_order_id = invoice.order_id
+        if not resolved_order_id:
+            # Query orders table using user_id fallback
+            fallback_order = db.query(Order).filter(
+                Order.user_id == invoice.user_id,
+                Order.is_deleted == False
+            ).order_by(Order.created_at.desc()).first()
+            if fallback_order:
+                resolved_order_id = fallback_order.id
+                invoice.order_id = resolved_order_id
+                db.flush()
+                
+        if not resolved_order_id:
+            # Spawn a lightweight shell order fallback to satisfy NOT NULL constraint
+            shell_order = Order(
+                user_id=invoice.user_id,
+                status=OrderStatus.Placed,
+                total_amount=invoice.grand_total,
+                origin="invoice_fallback"
+            )
+            db.add(shell_order)
+            db.flush() # Populate shell_order.id
+            resolved_order_id = shell_order.id
+            invoice.order_id = resolved_order_id
+            db.flush()
+
+        # Populate customer_district on invoice if missing
+        if customer and not invoice.customer_district:
+            invoice.customer_district = customer.district
+            db.flush()
+
+        # Resolve District Zone mapping
+        customer_district_var = invoice.customer_district.strip().upper() if invoice.customer_district else "COIMBATORE"
+
+        # Fetch zone code assignment mapping based on sanitized customer district name text strings
+        zone_lookup_query = text("""
+            SELECT z.id, UPPER(TRIM(z.zone_code)) 
+            FROM zone_registry z
+            JOIN district_zone_mapping m ON z.id = m.zone_id
+            WHERE UPPER(TRIM(m.district_name)) = UPPER(TRIM(:customer_district)) LIMIT 1;
+        """)
+        result = db.execute(zone_lookup_query, {"customer_district": customer_district_var}).first()
+        
+        if result:
+            resolved_zone_id = result[0]
+            resolved_zone = result[1]
+        else:
+            # Fallback to ZONE_2
+            fallback_query = text("SELECT id, UPPER(TRIM(zone_code)) FROM zone_registry WHERE UPPER(TRIM(zone_code)) = 'ZONE_2' LIMIT 1;")
+            fb_res = db.execute(fallback_query).first()
+            if fb_res:
+                resolved_zone_id = fb_res[0]
+                resolved_zone = fb_res[1]
+            else:
+                resolved_zone_id = None
+                resolved_zone = "ZONE_2"
+
         new_task = DeliveryTask(
+            order_id=resolved_order_id,
             invoice_id=invoice.id,
             invoice_number=invoice.invoice_number,
-            order_reference=str(invoice.order_id) if invoice.order_id else invoice.reference_number,
+            order_reference=str(resolved_order_id),
             customer_name=invoice.customer_name,
             customer_address=full_address,
+            customer_district=invoice.customer_district.strip().upper() if invoice.customer_district else "COIMBATORE",
+            zone_id=resolved_zone_id,
+            assignment_status_or_zone=resolved_zone,
             contact_number=contact_phone,
             challan_url=challan_url,
-            status="Pending Delivery"
+            status=DeliveryStatus.PENDING,
+            timestamp_logs={DeliveryStatus.PENDING.value: datetime.now().isoformat()}
         )
         db.add(new_task)
         

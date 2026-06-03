@@ -5,14 +5,14 @@ import json
 import traceback
 from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
 from sqlalchemy.orm import Session
-from sqlalchemy import func, cast, Date
+from sqlalchemy import func, cast, Date, text
 import razorpay
 
 from typing import List, Optional
 from fastapi.responses import FileResponse
 from app.database.db import get_db
-from app.models.orm import Invoice, Payment, User, DeliveryTask, ActivityLog, Advance
-from app.models.enums import PaymentMethod, PaymentStatus, DeliveryStatus
+from app.models.orm import Invoice, Payment, User, DeliveryTask, ActivityLog, Advance, Order, DistrictZoneMapping
+from app.models.enums import PaymentMethod, PaymentStatus, DeliveryStatus, OrderStatus
 from app.models.schemas import (
     PaymentCreate, PaymentVerify, AdvanceCreate, 
     PaymentRecordRequest, PaymentRead, PaymentStats, PaymentResponse
@@ -393,9 +393,45 @@ async def process_successful_payment(invoice_number: str, payment_id: str, signa
 
         # 🚚 3. AUTO-DELIVERY HANDSHAKE & CHALLAN GENERATION (Wrapped in try-except for robustness)
         try:
+            # Resolve parent order_id to satisfy strict NOT NULL constraint on DeliveryTask
+            resolved_order_id = invoice.order_id
+            
+            if not resolved_order_id:
+                # Query orders table using user_id fallback
+                fallback_order = db.query(Order).filter(
+                    Order.user_id == invoice.user_id,
+                    Order.is_deleted == False
+                ).order_by(Order.created_at.desc()).first()
+                if fallback_order:
+                    resolved_order_id = fallback_order.id
+                    invoice.order_id = resolved_order_id
+                    db.flush()
+                    print(f"DEBUG: Found existing order {resolved_order_id} via user_id lookup fallback")
+                    
+            if not resolved_order_id:
+                # Spawn a lightweight shell order fallback to satisfy NOT NULL constraint
+                print(f"DEBUG: No order mapping found. Spawning shell order for user {invoice.user_id}")
+                shell_order = Order(
+                    user_id=invoice.user_id,
+                    status=OrderStatus.Placed,
+                    total_amount=invoice.grand_total,
+                    origin="payment_fallback"
+                )
+                db.add(shell_order)
+                db.flush() # Populate shell_order.id
+                resolved_order_id = shell_order.id
+                invoice.order_id = resolved_order_id
+                db.flush()
+
             # Fetch customer's full profile for logistics
             customer = db.query(User).filter(User.id == invoice.user_id).first()
-            full_address = f"{customer.address_line}, {customer.city}, {customer.state} - {customer.pincode}" if (customer and customer.address_line) else invoice.place_of_supply
+            
+            # Populate customer_district on invoice if missing
+            if customer and not invoice.customer_district:
+                invoice.customer_district = customer.district
+                db.flush()
+
+            full_address = f"{customer.address_line}, {customer.district}, {customer.state} - {customer.pincode}" if (customer and customer.address_line) else invoice.place_of_supply
             
             # Pull contact from User profile or fallback to a placeholder
             contact_phone = customer.phone if (customer and customer.phone) else "Not Provided"
@@ -416,19 +452,49 @@ async def process_successful_payment(invoice_number: str, payment_id: str, signa
             invoice.challan_url = challan_url
     
             # Create Delivery Task
+            customer_district_var = invoice.customer_district.strip().upper() if invoice.customer_district else "COIMBATORE"
+
+            # Fetch zone code assignment mapping based on sanitized customer district name text strings
+            zone_lookup_query = text("""
+                SELECT z.id, UPPER(TRIM(z.zone_code)) 
+                FROM zone_registry z
+                JOIN district_zone_mapping m ON z.id = m.zone_id
+                WHERE UPPER(TRIM(m.district_name)) = UPPER(TRIM(:customer_district)) LIMIT 1;
+            """)
+            result = db.execute(zone_lookup_query, {"customer_district": customer_district_var}).first()
+            
+            if result:
+                resolved_zone_id = result[0]
+                resolved_zone = result[1]
+            else:
+                # Fallback to ZONE_2
+                fallback_query = text("SELECT id, UPPER(TRIM(zone_code)) FROM zone_registry WHERE UPPER(TRIM(zone_code)) = 'ZONE_2' LIMIT 1;")
+                fb_res = db.execute(fallback_query).first()
+                if fb_res:
+                    resolved_zone_id = fb_res[0]
+                    resolved_zone = fb_res[1]
+                else:
+                    resolved_zone_id = None
+                    resolved_zone = "ZONE_2"
+
             new_task = DeliveryTask(
+                order_id=resolved_order_id,
                 invoice_id=invoice.id,
                 invoice_number=invoice.invoice_number,
-                order_reference=str(invoice.order_id) if invoice.order_id else invoice.reference_number,
+                order_reference=str(resolved_order_id),
                 customer_name=invoice.customer_name or "Customer",
                 customer_address=full_address or "No Address Provided",
+                customer_district=invoice.customer_district.strip().upper() if invoice.customer_district else "COIMBATORE",
+                zone_id=resolved_zone_id,
+                assignment_status_or_zone=resolved_zone,
                 contact_number=contact_phone or "N/A",
                 challan_url=challan_url,
                 status=DeliveryStatus.PENDING,
                 timestamp_logs={DeliveryStatus.PENDING.value: datetime.now().isoformat()}
             )
+
             db.add(new_task)
-            print(f"DEBUG: Delivery Task created for {invoice.invoice_number} with status PENDING")
+            print(f"DEBUG: Delivery Task created for {invoice.invoice_number} with status PENDING, zone {resolved_zone}")
         except Exception as delivery_err:
             print(f"WARNING: Delivery task creation failed for {invoice.invoice_number}: {delivery_err}")
             # We don't raise here because we want to ensure the payment is still recorded

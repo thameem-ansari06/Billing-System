@@ -3,6 +3,7 @@ import {
   Box,
   ShoppingCart,
   Truck,
+  MapPin,
   Quote,
   FileText,
   RefreshCw,
@@ -57,7 +58,13 @@ export const navConfig = [
         title: "Delivery Tasks",
         path: "/delivery-tasks",
         icon: Truck,
-        allowedRoles: ["admin", "ceo", "sales", "delivery"],
+        allowedRoles: ["admin", "ceo", "sales", "delivery_management"],
+      },
+      {
+        title: "Zone Logistics",
+        path: "/logistics-dashboard",
+        icon: MapPin,
+        allowedRoles: ["admin", "ceo", "delivery_management"],
       },
       {
         title: "Driver Dashboard",

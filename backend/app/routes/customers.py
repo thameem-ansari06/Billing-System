@@ -30,7 +30,7 @@ def get_all_customers(db: Session = Depends(get_db)):
             "gst_treatment": "Registered" if u.gst_no else "Unregistered",
             "place_of_supply": "N/A",
             "billing_address_1": u.business_address or u.address_line,
-            "billing_city": u.city,
+            "billing_district": u.district,
             "billing_state": u.state,
             "billing_pincode": u.pincode,
             "pan": u.pan_no

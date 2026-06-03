@@ -30,8 +30,8 @@ export default function CreateCustomer() {
     customer_type: 'Individual', salutation: 'Mr.', first_name: '', last_name: '',
     company_name: '', display_name: '', currency: 'INR', email: '', phone_work: '', phone_mobile: '',
     gst_treatment: 'Unregistered Business', place_of_supply: 'Tamil Nadu', pan: '', tax_preference: 'Taxable', payment_terms: 'Due on Receipt',
-    billing_attention: '', billing_address_1: '', billing_address_2: '', billing_city: '', billing_state: '', billing_pincode: '', billing_phone: '', billing_fax: '',
-    shipping_attention: '', shipping_address_1: '', shipping_address_2: '', shipping_city: '', shipping_state: '', shipping_pincode: '',
+    billing_attention: '', billing_address_1: '', billing_address_2: '', billing_district: '', billing_state: '', billing_pincode: '', billing_phone: '', billing_fax: '',
+    shipping_attention: '', shipping_address_1: '', shipping_address_2: '', shipping_district: '', shipping_state: '', shipping_pincode: '', district: '',
     contact_persons: [{ salutation: 'Mr.', first: '', last: '', email: '', work: '', mobile: '' }]
   });
 
@@ -74,7 +74,7 @@ export default function CreateCustomer() {
       shipping_attention: formData.billing_attention,
       shipping_address_1: formData.billing_address_1,
       shipping_address_2: formData.billing_address_2,
-      shipping_city: formData.billing_city,
+      shipping_district: formData.billing_district,
       shipping_state: formData.billing_state,
       shipping_pincode: formData.billing_pincode,
     });
@@ -312,7 +312,7 @@ export default function CreateCustomer() {
                     <Textarea placeholder="Address Line 1 (Building, Street)" className="min-h-[60px] rounded-md" value={formData.billing_address_1} onChange={(e) => updateField('billing_address_1', e.target.value)} />
                     <Input placeholder="Address Line 2 (Landmark, Area)" className="h-7 rounded-md" value={formData.billing_address_2} onChange={(e) => updateField('billing_address_2', e.target.value)} />
                     <div className="grid grid-cols-2 gap-2">
-                      <Input placeholder="City" className="h-7 rounded-md" value={formData.billing_city} onChange={(e) => updateField('billing_city', e.target.value)} />
+                      <Input placeholder="Enter District Name (e.g. SIVAGANGA, CHENNAI)" className="h-7 rounded-md" value={formData.billing_district} onChange={(e) => updateField('billing_district', e.target.value)} />
                       <Input placeholder="State" className="h-7 rounded-md" value={formData.billing_state} onChange={(e) => updateField('billing_state', e.target.value)} />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
@@ -338,7 +338,7 @@ export default function CreateCustomer() {
                     <Textarea placeholder="Address Line 1" className="min-h-[60px] rounded-md" value={formData.shipping_address_1} onChange={(e) => updateField('shipping_address_1', e.target.value)} />
                     <Input placeholder="Address Line 2" className="h-7 rounded-md" value={formData.shipping_address_2} onChange={(e) => updateField('shipping_address_2', e.target.value)} />
                     <div className="grid grid-cols-2 gap-2">
-                      <Input placeholder="City" className="h-7 rounded-md" value={formData.shipping_city} onChange={(e) => updateField('shipping_city', e.target.value)} />
+                      <Input placeholder="Enter District Name (e.g. SIVAGANGA, CHENNAI)" className="h-7 rounded-md" value={formData.shipping_district} onChange={(e) => updateField('shipping_district', e.target.value)} />
                       <Input placeholder="State" className="h-7 rounded-md" value={formData.shipping_state} onChange={(e) => updateField('shipping_state', e.target.value)} />
                     </div>
                     <Input placeholder="Pin Code" className="h-7 rounded-md font-mono" value={formData.shipping_pincode} onChange={(e) => updateField('shipping_pincode', e.target.value)} />

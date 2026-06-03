@@ -45,7 +45,9 @@ export default function Login() {
           } else if (role === 'accounts') {
             navigate('/payments-received');
           } else if (role === 'delivery') {
-            navigate('/delivery-challans');
+            navigate('/driver/dashboard');
+          } else if (role === 'delivery_management') {
+            navigate('/delivery-tasks');
           } else if (role === 'user' || role === 'customer') {
             navigate('/customer/catalog');
           } else {

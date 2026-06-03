@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Users, Mail, Shield, Search, Plus, 
-  Trash2, UserPlus, ShieldCheck, Briefcase
+  Trash2, UserPlus, ShieldCheck, Briefcase, Edit2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -26,13 +26,27 @@ export default function StaffManagement() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState(null);
   
-  // Form State
+  // Form State for Adding Staff
   const [formData, setFormData] = useState({
     username: '',
     email: '',
     password: '',
-    role: 'sales'
+    role: 'sales',
+    assigned_zone_code: 'none',
+    is_available: true
+  });
+
+  // Form State for Editing Staff
+  const [editFormData, setEditFormData] = useState({
+    username: '',
+    email: '',
+    password: '',
+    role: 'sales',
+    assigned_zone_code: 'none',
+    is_available: true
   });
 
   const fetchStaff = async () => {
@@ -55,13 +69,50 @@ export default function StaffManagement() {
     e.preventDefault();
     try {
       const headers = { Authorization: `Bearer ${user.token}` };
-      await axios.post(`${API}/admin/add-staff`, formData, { headers });
+      const payload = {
+        ...formData,
+        assigned_zone_code: formData.assigned_zone_code === 'none' ? null : formData.assigned_zone_code
+      };
+      await axios.post(`${API}/admin/add-staff`, payload, { headers });
       toast.success("Staff member added successfully");
       setIsModalOpen(false);
-      setFormData({ username: '', email: '', password: '', role: 'sales' });
+      setFormData({ username: '', email: '', password: '', role: 'sales', assigned_zone_code: 'none', is_available: true });
       fetchStaff(); // Refresh list
     } catch (err) {
       toast.error(err.response?.data?.detail || "Failed to add staff");
+    }
+  };
+
+  const handleOpenEditModal = (staffMember) => {
+    setSelectedStaff(staffMember);
+    setEditFormData({
+      username: staffMember.username || '',
+      email: staffMember.email || '',
+      password: '', // Blank by default (leave empty to keep unchanged)
+      role: staffMember.role || 'sales',
+      assigned_zone_code: staffMember.assigned_zone_code || 'none',
+      is_available: staffMember.is_available !== undefined ? staffMember.is_available : true
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditStaff = async (e) => {
+    e.preventDefault();
+    try {
+      const headers = { Authorization: `Bearer ${user.token}` };
+      const payload = {
+        ...editFormData,
+        assigned_zone_code: editFormData.assigned_zone_code === 'none' ? 'none' : editFormData.assigned_zone_code
+      };
+      if (!payload.password || payload.password.trim() === '') {
+        delete payload.password;
+      }
+      await axios.put(`${API}/admin/staff/${selectedStaff.id}`, payload, { headers });
+      toast.success("Staff member updated successfully");
+      setIsEditModalOpen(false);
+      fetchStaff(); // Refresh list
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to update staff");
     }
   };
 
@@ -146,10 +197,49 @@ export default function StaffManagement() {
                     <SelectItem value="ceo">CEO</SelectItem>
                     <SelectItem value="sales">Sales</SelectItem>
                     <SelectItem value="delivery">Delivery</SelectItem>
+                    <SelectItem value="delivery_management">Delivery Management</SelectItem>
                     <SelectItem value="accounts">Accounts</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              {(formData.role === 'delivery' || formData.role === 'delivery_agent') && (
+                <>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Assigned Zone</Label>
+                    <Select 
+                      value={formData.assigned_zone_code} 
+                      onValueChange={val => setFormData({...formData, assigned_zone_code: val})}
+                    >
+                      <SelectTrigger className="rounded-xl border-slate-200 h-11">
+                        <SelectValue placeholder="Select a zone" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        <SelectItem value="none">None (Unassigned)</SelectItem>
+                        <SelectItem value="ZONE_1">Zone 1 (North)</SelectItem>
+                        <SelectItem value="ZONE_2">Zone 2 (West)</SelectItem>
+                        <SelectItem value="ZONE_3">Zone 3 (South)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Availability</Label>
+                    <Select 
+                      value={formData.is_available ? 'true' : 'false'} 
+                      onValueChange={val => setFormData({...formData, is_available: val === 'true'})}
+                    >
+                      <SelectTrigger className="rounded-xl border-slate-200 h-11">
+                        <SelectValue placeholder="Select availability" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        <SelectItem value="true">Online / Available</SelectItem>
+                        <SelectItem value="false">Offline / Unavailable</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+
               <DialogFooter className="pt-4">
                 <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 h-12 rounded-2xl font-black text-xs uppercase tracking-widest">
                   Create Account
@@ -159,6 +249,114 @@ export default function StaffManagement() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Edit Staff Dialog */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="sm:max-w-[425px] rounded-[2.5rem]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black text-slate-800">Edit Staff Personnel</DialogTitle>
+            <CardDescription className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              Modify system roles and geographic cluster routing
+            </CardDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditStaff} className="space-y-6 py-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Username</Label>
+              <Input 
+                required
+                placeholder="john_doe" 
+                className="rounded-xl border-slate-200 h-11"
+                value={editFormData.username}
+                onChange={e => setEditFormData({...editFormData, username: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Email Address</Label>
+              <Input 
+                required
+                type="email"
+                placeholder="john@enterprise.com" 
+                className="rounded-xl border-slate-200 h-11"
+                value={editFormData.email}
+                onChange={e => setEditFormData({...editFormData, email: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Password (Leave blank to keep unchanged)</Label>
+              <Input 
+                type="password"
+                placeholder="••••••••" 
+                className="rounded-xl border-slate-200 h-11"
+                value={editFormData.password}
+                onChange={e => setEditFormData({...editFormData, password: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">System Role</Label>
+              <Select 
+                value={editFormData.role} 
+                onValueChange={val => setEditFormData({...editFormData, role: val})}
+              >
+                <SelectTrigger className="rounded-xl border-slate-200 h-11">
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="ceo">CEO</SelectItem>
+                  <SelectItem value="sales">Sales</SelectItem>
+                  <SelectItem value="delivery">Delivery</SelectItem>
+                  <SelectItem value="delivery_management">Delivery Management</SelectItem>
+                  <SelectItem value="accounts">Accounts</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {(editFormData.role === 'delivery' || editFormData.role === 'delivery_agent') && (
+              <>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Assigned Zone</Label>
+                  <Select 
+                    value={editFormData.assigned_zone_code || 'none'} 
+                    onValueChange={val => setEditFormData({...editFormData, assigned_zone_code: val})}
+                  >
+                    <SelectTrigger className="rounded-xl border-slate-200 h-11">
+                      <SelectValue placeholder="Select a zone" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="none">None (Unassigned)</SelectItem>
+                      <SelectItem value="ZONE_1">Zone 1 (North)</SelectItem>
+                      <SelectItem value="ZONE_2">Zone 2 (West)</SelectItem>
+                      <SelectItem value="ZONE_3">Zone 3 (South)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Availability Status</Label>
+                  <Select 
+                    value={editFormData.is_available ? 'true' : 'false'} 
+                    onValueChange={val => setEditFormData({...editFormData, is_available: val === 'true'})}
+                  >
+                    <SelectTrigger className="rounded-xl border-slate-200 h-11">
+                      <SelectValue placeholder="Select availability" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="true">Online / Available</SelectItem>
+                      <SelectItem value="false">Offline / Unavailable</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+            
+            <DialogFooter className="pt-4">
+              <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 h-12 rounded-2xl font-black text-xs uppercase tracking-widest">
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Card className="border-none shadow-2xl shadow-slate-200/50 rounded-[3rem] overflow-hidden bg-white">
         <CardHeader className="flex flex-row items-center justify-between p-8 border-b border-slate-50">
@@ -184,13 +382,15 @@ export default function StaffManagement() {
                 <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 pl-8 h-14">Personnel</TableHead>
                 <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Role</TableHead>
                 <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Contact</TableHead>
-                <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right pr-8">Status</TableHead>
+                <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Assigned Zone</TableHead>
+                <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Availability</TableHead>
+                <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right pr-8">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredStaff.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-20 text-center">
+                  <TableCell colSpan={6} className="py-20 text-center">
                     <Users className="mx-auto text-slate-200 mb-2" size={40} />
                     <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No staff members matched your search</p>
                   </TableCell>
@@ -228,8 +428,37 @@ export default function StaffManagement() {
                         {s.email}
                       </div>
                     </TableCell>
+                    <TableCell>
+                      {s.assigned_zone_code && s.assigned_zone_code !== 'none' ? (
+                        <Badge variant="outline" className="px-2.5 py-0.5 rounded-lg font-black text-[9px] uppercase tracking-widest border-blue-100 text-blue-600 bg-blue-50/30">
+                          {s.assigned_zone_code}
+                        </Badge>
+                      ) : (
+                        <span className="text-slate-450 text-xs font-semibold">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {s.role === 'delivery' || s.role === 'delivery_agent' ? (
+                        <Badge className={`border-none font-black text-[9px] uppercase px-3 py-1 rounded-full ${
+                          s.is_available ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                        }`}>
+                          {s.is_available ? 'Available' : 'Unavailable'}
+                        </Badge>
+                      ) : (
+                        <span className="text-slate-450 text-xs font-semibold">-</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right pr-8">
-                      <Badge className="bg-emerald-100 text-emerald-700 border-none font-black text-[9px] uppercase px-3 py-1 rounded-full">Active</Badge>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button 
+                          onClick={() => handleOpenEditModal(s)}
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50"
+                        >
+                          <Edit2 size={14} />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

@@ -27,7 +27,7 @@ class UserRead(ORMBase):
     email: Optional[str] = None
     phone: Optional[str] = None
     address_line: Optional[str] = None
-    city: Optional[str] = None
+    district: Optional[str] = None
     state: Optional[str] = None
     pincode: Optional[str] = None
     gstin: Optional[str] = None
@@ -38,6 +38,8 @@ class UserRead(ORMBase):
     business_address: Optional[str] = None
     document_url: Optional[str] = None
     wallet_balance: float = 0.0
+    assigned_zone_code: Optional[str] = None
+    is_available: bool = True
     created_at: Optional[datetime] = None
 
 class UserUpdate(ORMBase):
@@ -45,10 +47,11 @@ class UserUpdate(ORMBase):
     email: Optional[str] = None
     phone: Optional[str] = None
     address_line: Optional[str] = None
-    city: Optional[str] = None
+    district: Optional[str] = None
     state: Optional[str] = None
     pincode: Optional[str] = None
     gstin: Optional[str] = None
+
     current_password: Optional[str] = None
     new_password: Optional[str] = None
 
@@ -71,6 +74,17 @@ class StaffCreate(ORMBase):
     email: EmailStr
     password: str
     role: str
+    assigned_zone_code: Optional[str] = None
+    is_available: Optional[bool] = True
+
+class StaffUpdate(ORMBase):
+    """Admin-only payload for updating internal staff."""
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    role: Optional[str] = None
+    assigned_zone_code: Optional[str] = None
+    is_available: Optional[bool] = None
+    password: Optional[str] = None
 
 class Token(BaseModel):
     access_token: str
@@ -170,7 +184,7 @@ class CustomerCreate(ORMBase):
     billing_country: str = "India"
     billing_address_1: Optional[str] = ""
     billing_address_2: Optional[str] = ""
-    billing_city: Optional[str] = ""
+    billing_district: Optional[str] = ""
     billing_state: Optional[str] = ""
     billing_pincode: Optional[str] = ""
     billing_phone: Optional[str] = ""
@@ -181,13 +195,17 @@ class CustomerCreate(ORMBase):
     shipping_country: str = "India"
     shipping_address_1: Optional[str] = ""
     shipping_address_2: Optional[str] = ""
-    shipping_city: Optional[str] = ""
+    shipping_district: Optional[str] = ""
     shipping_state: Optional[str] = ""
     shipping_pincode: Optional[str] = ""
     shipping_phone: Optional[str] = ""
     shipping_fax: Optional[str] = ""
     
+    # General District
+    district: Optional[str] = ""
+    
     contact_persons: List[ContactPersonBase] = []
+
 
 class CustomerRead(CustomerCreate):
     id: int
@@ -233,7 +251,9 @@ class InvoiceCreate(ORMBase):
     related_challan_id: Optional[int] = None
     order_id: Optional[int] = None
     user_id: Optional[int] = None
+    customer_district: Optional[str] = None
     items: List[InvoiceItemBase]
+
 
 class InvoiceRead(InvoiceCreate):
     id: int
@@ -319,6 +339,8 @@ class DeliveryTaskBase(ORMBase):
     driver_id: Optional[Any] = None
     customer_name: Optional[str] = None
     customer_address: Optional[str] = None
+    customer_district: Optional[str] = None
+    assignment_status_or_zone: Optional[str] = None
     contact_number: Optional[str] = None
     status: Optional[DeliveryStatus] = DeliveryStatus.ASSIGNED
     timestamp_logs: Optional[Dict[str, Any]] = None
@@ -330,6 +352,7 @@ class DeliveryTaskBase(ORMBase):
     invoice_number: Optional[str] = None
     order_reference: Optional[str] = None
     batch_id: Optional[int] = None
+
 
 class DeliveryTaskRead(DeliveryTaskBase):
     id: Any
@@ -370,6 +393,10 @@ class DashboardStats(BaseModel):
     active_delivery_tasks_count: int
     low_stock_products_count: int
     monthly_sales: List[Dict[str, Any]] # For charts
+    total_customers: int
+    total_products_count: int
+    paid_invoices_count: int
+    overdue_invoices_count: int
 
 class ActivityLogRead(ORMBase):
     id: int
