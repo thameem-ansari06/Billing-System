@@ -4,6 +4,8 @@ __pycache__/
 
 # Sensitive data
 .env
+.env.*
+!.env.example
 
 # Local Databases
 *.db

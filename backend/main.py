@@ -44,7 +44,11 @@ setup_db()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://ar-automation-thameem.vercel.app",
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -60,7 +64,10 @@ async def add_csp_header(request, call_next):
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
         "img-src 'self' data: https: http:; "
         "font-src 'self' https://fonts.gstatic.com; "
-        "connect-src 'self' http://localhost:8000 ws://localhost:8000;"
+        "connect-src 'self' https://billing-system-jk1c.onrender.com "
+        "wss://billing-system-jk1c.onrender.com http://localhost:8000 "
+        "ws://localhost:8000 http://localhost:5173 ws://localhost:5173 "
+        "http://localhost:3000 ws://localhost:3000;"
     )
     
     response.headers["Content-Security-Policy"] = csp_directives
